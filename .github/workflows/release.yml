@@ -92,7 +92,7 @@ jobs:
           path: backend/internal/web/dist
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           # go 版本跟随 backend/go.mod 的 go 指令
           go-version-file: backend/go.mod

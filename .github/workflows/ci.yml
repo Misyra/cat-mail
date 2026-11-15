@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           # go 版本跟随 backend/go.mod 的 go 指令
           go-version-file: backend/go.mod
@@ -110,7 +110,7 @@ jobs:
 
       # golangci-lint 的 typecheck 阶段需要本地 go 工具链与模块缓存
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
           cache: true
@@ -143,7 +143,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
           cache: true
@@ -193,7 +193,7 @@ jobs:
       # playwright webServer（scripts/e2e-server.sh）会现场 go build 后端，
       # 所以 e2e job 也要备好 Go 工具链与模块/构建缓存
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
           cache: true
