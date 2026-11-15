@@ -1,0 +1,71 @@
+{
+  "page": {
+    "title": "抑制列表",
+    "description": "命中列表的收件人在所有发送入口被拒（hard bounce 与投诉事件按系统设置自动入库，也可手动添加）。"
+  },
+  "actions": {
+    "add": "手动添加",
+    "addSubmit": "添加",
+    "adding": "添加中…",
+    "remove": "解除",
+    "removing": "解除中…",
+    "removeAria": "解除 {{email}} 的抑制"
+  },
+  "filter": {
+    "reasonAria": "按原因筛选",
+    "allReasons": "全部原因",
+    "channelAria": "按来源渠道筛选",
+    "allChannels": "全部渠道",
+    "emailAria": "按邮箱筛选",
+    "emailPlaceholder": "邮箱地址…"
+  },
+  "reason": {
+    "bounce": "退信",
+    "complaint": "投诉",
+    "manual": "手动"
+  },
+  "fields": {
+    "addedAt": "添加时间",
+    "email": "邮箱",
+    "reason": "原因",
+    "channel": "来源渠道"
+  },
+  "empty": {
+    "filteredTitle": "没有匹配的抑制记录",
+    "filteredDesc": "换个筛选条件试试。",
+    "clearFilters": "清除筛选",
+    "noRecordsTitle": "抑制列表为空",
+    "noRecordsDesc": "hard bounce 与投诉事件会按系统设置自动进入这里；也可以手动拉黑不再发送的地址。"
+  },
+  "pagination": {
+    "range": "第 {{start}}–{{end}} 条 · 共 {{total}} 条 · 第 {{page}} / {{totalPages}} 页",
+    "perPage": "每页",
+    "perPageAria": "每页条数",
+    "jumpTo": "跳至",
+    "jumpAria": "跳转到指定页（回车确认）",
+    "pagePlaceholder": "页码",
+    "pageSuffix": "页",
+    "prev": "上一页",
+    "next": "下一页"
+  },
+  "addModal": {
+    "title": "手动添加抑制",
+    "emailLabel": "收件邮箱",
+    "noteLabel": "备注说明（可选）",
+    "notePlaceholder": "如：客户已注销 / 投诉风险地址",
+    "noteAria": "备注说明",
+    "hint": "添加后该地址在所有发送入口立即被拒（400 recipient_suppressed）；解除后若再收到 hard bounce / 投诉事件会自动重新入库。"
+  },
+  "removeModal": {
+    "title": "解除抑制",
+    "confirmPrefix": "确认解除",
+    "confirmSuffix": " 的发送抑制？",
+    "note": "解除后该地址立即可正常发送；若后续再收到 hard bounce 或投诉事件，会按系统设置自动重新入库。"
+  },
+  "toast": {
+    "added": "已添加抑制：{{email}}",
+    "addFailed": "添加失败",
+    "removed": "已解除抑制：{{email}}",
+    "removeFailed": "解除失败"
+  }
+}

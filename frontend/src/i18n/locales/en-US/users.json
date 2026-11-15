@@ -1,0 +1,64 @@
+{
+  "page": {
+    "title": "Accounts",
+    "description": "Manage admin login accounts; every signed-in user has the admin role."
+  },
+  "actions": {
+    "create": "New Account",
+    "createSubmit": "Create Account",
+    "resetPassword": "Reset Password",
+    "confirmDelete": "Delete Account"
+  },
+  "fields": {
+    "username": "Username",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password"
+  },
+  "placeholders": {
+    "confirmPassword": "Re-enter password",
+    "confirmNewPassword": "Re-enter new password"
+  },
+  "hints": {
+    "usernameLength": "2-32 characters",
+    "passwordMinLength": "At least 6 characters"
+  },
+  "errors": {
+    "usernameRequired": "Please enter a username",
+    "usernameMinLength": "Username must be at least 2 characters",
+    "usernameMaxLength": "Username cannot exceed 32 characters",
+    "passwordMinLength": "Password must be at least 6 characters",
+    "passwordMaxLength": "Password cannot exceed 72 characters",
+    "passwordMismatch": "Passwords do not match",
+    "newPasswordMinLength": "New password must be at least 6 characters"
+  },
+  "badge": {
+    "self": "You"
+  },
+  "empty": {
+    "title": "No accounts yet",
+    "description": "Create an admin account to sign in to the admin panel."
+  },
+  "list": {
+    "label": "Account list"
+  },
+  "resetModal": {
+    "title": "Reset Password · {{name}}",
+    "note": "All sessions of this user will be invalidated after the reset; your own login is not affected.",
+    "apiKeysWarning": "All API keys created by this account will also be disabled (re-enable them manually on the API Keys page)."
+  },
+  "deleteModal": {
+    "title": "Delete Account",
+    "confirmPrefix": "Are you sure you want to delete the account",
+    "quotedName": "\"{{name}}\"",
+    "confirmSuffix": "?",
+    "note": "This account will no longer be able to sign in; at least one account must be kept.",
+    "cannotDeleteSelf": "You cannot delete the account you are signed in with"
+  },
+  "toast": {
+    "created": "Account \"{{name}}\" created",
+    "passwordReset": "Password for \"{{name}}\" has been reset; their sessions and API keys have been revoked",
+    "deleted": "Account \"{{name}}\" deleted"
+  }
+}

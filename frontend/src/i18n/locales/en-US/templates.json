@@ -1,0 +1,75 @@
+{
+  "page": {
+    "title": "Email Templates",
+    "description": "Reusable email content skeletons; reference via template_id when sending, {{sample}} placeholders render per variable (HTML variables are escaped automatically).",
+    "create": "New Template",
+    "emptyTitle": "No email templates yet",
+    "emptyDescription": "Create a template, then reference it in the send API with template_id + variables to keep body content in one place."
+  },
+  "actions": {
+    "preview": "Preview"
+  },
+  "table": {
+    "label": "Template list",
+    "subject": "Subject",
+    "variables": "Variables",
+    "updatedAt": "Updated"
+  },
+  "form": {
+    "editTitle": "Edit Template",
+    "createTitle": "New Template",
+    "submitCreate": "Create Template",
+    "untitled": "Untitled template",
+    "name": "Template name",
+    "nameHint": "Unique, up to 128 characters",
+    "namePlaceholder": "Welcome email",
+    "nameRequired": "Please enter a template name",
+    "nameTooLong": "Template name cannot exceed 128 characters",
+    "subject": "Subject",
+    "subjectHint": "Supports {{sample}} placeholders, up to 998 characters",
+    "subjectRequired": "Please enter a template subject (may include {{sample}} placeholders)",
+    "subjectTooLong": "Template subject cannot exceed 998 characters",
+    "htmlBody": "HTML body",
+    "htmlBodyHint": "Variables are escaped in HTML context; fill in at least one of HTML or plain text body",
+    "textBody": "Plain text body",
+    "textBodyHint": "Variables are replaced as-is in plain text context",
+    "bodyRequired": "Fill in at least one of the HTML body and the plain text body",
+    "varsLabel": "Variables",
+    "varsLabelExtra": "(extracted live from content placeholders)",
+    "varsListLabel": "Variable list (optional)",
+    "varsListHint": "Comma/newline separated; leave empty to auto-extract from content on save, or provide an explicit list (may include variables not yet used)",
+    "varsListTooMany": "Variable list cannot exceed 100 variables"
+  },
+  "vars": {
+    "exampleName": "variableName",
+    "exampleShort": "variable",
+    "emptyHint": "No placeholders yet; use {{sample}} in the subject or body to reference variables.",
+    "chipTitle": "Provide this variable via variables when sending"
+  },
+  "preview": {
+    "title": "Preview · {{name}}",
+    "sampleVarsLabel": "Sample variables (JSON object)",
+    "sampleVarsHint": "Provided via the variables field when sending; placeholders without a value render empty",
+    "sampleVarsInvalid": "Not a valid JSON object",
+    "sampleVarsPlaceholder": "{\"name\": \"Alice\", \"order_no\": \"SO-20260101-001\"}",
+    "renderedSubjectLabel": "Rendered subject:",
+    "emptySubject": "(empty)",
+    "desktopView": "Desktop view",
+    "desktopIframeTitle": "Desktop preview",
+    "mobileView": "Mobile view (375px)",
+    "mobileIframeTitle": "Mobile preview"
+  },
+  "delete": {
+    "title": "Delete Template",
+    "confirm": "Delete",
+    "confirmPrefix": "Are you sure you want to delete template",
+    "nameWrapped": "\"{{name}}\"",
+    "confirmSuffix": "?",
+    "warning": "Historical send logs referencing this template keep the template ID for traceability; requests currently sending are unaffected."
+  },
+  "toast": {
+    "created": "Template \"{{name}}\" created",
+    "saved": "Template \"{{name}}\" saved",
+    "deleted": "Template \"{{name}}\" deleted"
+  }
+}

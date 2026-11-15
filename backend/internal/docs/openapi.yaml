@@ -1,0 +1,2893 @@
+# openapi.yaml CatMail API 规范（B2 内嵌文档）。
+# 手写维护，与 SPEC.md 同步更新；由 internal/docs 内嵌并在 /docs 渲染、
+# /docs/openapi.yaml 原文直出。示例值均为脱敏占位，不含真实凭据。
+openapi: 3.1.0
+info:
+  title: CatMail API
+  version: 1.0.0
+  description: |
+    CatMail(猫邮) 多渠道邮件轮换发送服务的 HTTP API。
+
+    **鉴权方式**（三组入口互不重叠）：
+
+    - `POST /v1/send` 与 `POST /emails`：`Authorization: Bearer <ApiKey>`
+      （「API Key」页创建，`cm-` 前缀，明文仅创建时返回一次）。
+    - `/api/*` 管理面：登录签发的会话 Cookie `catmail_session`
+      （HMAC 签名、7 天有效、HttpOnly），除登录/登录第二步外全部拦截。
+    - `GET /api/health`、`GET /docs`、`GET /docs/openapi.yaml`：公开无鉴权。
+
+    另有两个特殊约束端点：`GET /metrics` 不走会话（抓取器不会登录），仅受管理
+    IP 白名单约束；`POST /api/auth/login`（含登录第二步）公开但同样受白名单约束。
+    白名单由环境变量 `CATMAIL_ADMIN_CIDR` 配置，未配置时不限制。
+
+    **统一错误体**：非 2xx 响应一律为
+    `{ "error": { "type": "<错误类型>", "message": "<人类可读文案>" } }`，
+    type 取值见 components.schemas.Error；服务端内部错误只返回通用文案，
+    详情不外泄。
+
+    **请求体上限**：发送入口 30MB（容纳 base64 附件），管理面 1MB，超限 400。
+
+    本规范与 SPEC.md 同步维护；如与实现不一致，以代码为准并请反馈修正。
+servers:
+  - url: /
+    description: 同源部署（直连或反向代理）
+tags:
+  - name: 文档
+    description: 内嵌文档页与规范原文（公开）
+  - name: 系统
+    description: 健康检查与 Prometheus 指标
+  - name: 发送
+    description: 对外发送入口（Resend SDK 兼容，/emails 为同构别名）
+  - name: 认证与会话
+    description: 登录、登出、会话信息与本人改密
+  - name: 两步验证
+    description: TOTP 绑定/启用/解绑（C4）
+  - name: 用户
+    description: 账号管理（登录用户均为管理员角色，上限 10 个）
+  - name: 渠道
+    description: 发送渠道管理与直发测试；响应中密钥/代理一律脱敏
+  - name: 发送日志
+    description: 发送记录查询、详情、CSV 导出与手动清理
+  - name: API Key
+    description: 调用方密钥管理；明文仅创建时返回一次，列表一律掩码
+  - name: 统计
+    description: 仪表盘总览与逐日曲线（排除测试发送）
+  - name: 更新
+    description: 自动更新检查与落盘替换（E8）：CATMAIL_UPDATE_REPO 开启，仅主机部署可用
+  - name: 通知
+    description: 站内通知中心（失败通知 O9）
+  - name: 设置
+    description: 系统设置读取/更新与通知通道连通性测试
+  - name: 审计
+    description: 管理操作审计日志查询（E4）：写操作成功后记录谁/何时/IP/动作/目标
+  - name: 数据管理
+    description: 整库备份与发送日志手动清理（danger 级操作）
+  - name: 送达事件
+    description: 送达链路三件套：入站送达事件摄取（公开 webhook）与查询、收件人抑制列表管理
+paths:
+  /docs:
+    get:
+      operationId: getDocsPage
+      tags: [文档]
+      summary: API 文档页（本页）
+      description: 单文件 HTML 文档页，公开无鉴权。页面数据为服务端把本规范解析后内嵌的 JSON，零外部依赖；深浅色跟随系统偏好。
+      x-auth: 公开
+      security: []
+      responses:
+        "200":
+          description: HTML 文档页
+          content:
+            text/html:
+              example: "<!doctype html> …（单文件 HTML）"
+  /docs/openapi.yaml:
+    get:
+      operationId: getDocsSpec
+      tags: [文档]
+      summary: OpenAPI 规范原文
+      description: 本规范的 YAML 原文，公开无鉴权，可下载后导入 OpenAPI 工具链。
+      x-auth: 公开
+      security: []
+      responses:
+        "200":
+          description: YAML 原文
+          content:
+            application/yaml:
+              example: "openapi: 3.1.0\ninfo: …"
+  /api/health:
+    get:
+      operationId: getHealth
+      tags: [系统]
+      summary: 健康检查
+      description: 公开探针，不校验会话；集成冒烟契约固定返回 {ok:true}。
+      x-auth: 公开
+      security: []
+      responses:
+        "200":
+          description: 服务正常
+          content:
+            application/json:
+              example: {ok: true}
+  /metrics:
+    get:
+      operationId: getMetrics
+      tags: [系统]
+      summary: Prometheus 指标
+      description: |
+        手写 Prometheus 文本暴露格式（version 0.0.4），四族指标：
+        catmail_sends_total（全量发送计数，按 channel/provider/status，排除测试发送）、
+        catmail_test_sends_total（渠道测试发送计数）、
+        catmail_channels（渠道状态 gauge，state: enabled/disabled/cooldown）、
+        catmail_notifications_unread（未读通知数）。
+        鉴权：不挂会话，仅受管理 IP 白名单（CATMAIL_ADMIN_CIDR）约束；
+        未配置白名单时全网可达，生产建议与白名单一同配置收紧。
+      x-auth: IP 白名单
+      security: []
+      responses:
+        "200":
+          description: 指标文本（空族仍输出 HELP/TYPE 行）
+          content:
+            text/plain; version=0.0.4; charset=utf-8:
+              example: |
+                # HELP catmail_sends_total 全量发送计数（按渠道/平台/结果状态，排除测试发送）
+                # TYPE catmail_sends_total counter
+                catmail_sends_total{channel="主渠道",provider="smtp",status="sent"} 42
+                catmail_sends_total{channel="备渠道",provider="resend",status="failed"} 1
+                # HELP catmail_test_sends_total 测试发送计数（渠道测试发送 is_test=true，不混入 catmail_sends_total）
+                # TYPE catmail_test_sends_total counter
+                # HELP catmail_channels 渠道状态（state: enabled/disabled/cooldown，每渠道恒为 1）
+                # TYPE catmail_channels gauge
+                catmail_channels{channel="主渠道",provider="smtp",state="enabled"} 1
+                # HELP catmail_notifications_unread 站内通知未读数
+                # TYPE catmail_notifications_unread gauge
+                catmail_notifications_unread 0
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /v1/send:
+    post:
+      operationId: sendMail
+      tags: [发送]
+      summary: 发送邮件（主入口）
+      description: |
+        Bearer ApiKey 鉴权；轮换调度（按优先级/轮询、失败换渠道、额度与冷却状态机）。
+        可选 Idempotency-Key 幂等防重发（E2）：首次响应被存档，同 Key 重放返回存档响应。
+      x-auth: Bearer ApiKey
+      security:
+        - bearerApiKey: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: 幂等键，≤128 个可见打印 ASCII 字符；不传 = 不启用去重
+          schema: {type: string, maxLength: 128}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, subject]
+              properties:
+                from:
+                  type: string
+                  maxLength: 1024
+                  description: |
+                    发件人，"Name <addr>" 或纯地址。省略时：指定渠道用其默认发件人
+                    （渠道也未配置 → 400）；未指定渠道时按各候选渠道默认发件人逐候选回退。
+                to:
+                  description: 收件人（必填），单个地址字符串或数组；与 cc/bcc 合计 ≤100 项，单项 ≤320 字符
+                  oneOf:
+                    - {type: string}
+                    - {type: array, items: {type: string}}
+                subject:
+                  type: string
+                  maxLength: 998
+                  description: 主题（必填）
+                html:
+                  type: string
+                  maxLength: 1048576
+                  description: HTML 正文；与 text 至少提供一个非空
+                text:
+                  type: string
+                  maxLength: 1048576
+                  description: 纯文本正文
+                cc:
+                  description: 抄送，形态同 to（可选）
+                  oneOf:
+                    - {type: string}
+                    - {type: array, items: {type: string}}
+                bcc:
+                  description: 密送，形态同 to（可选）
+                  oneOf:
+                    - {type: string}
+                    - {type: array, items: {type: string}}
+                reply_to:
+                  description: 回复地址，形态同 to（可选）；接受 camelCase 别名 replyTo
+                  oneOf:
+                    - {type: string}
+                    - {type: array, items: {type: string}}
+                headers:
+                  type: object
+                  additionalProperties: {type: string}
+                  description: 自定义邮件头透传（≤50 项，键非空 ≤256 字符、值 ≤4096 字符，键值不得含换行）
+                attachments:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                    required: [filename]
+                    properties:
+                      filename: {type: string, maxLength: 255, description: 文件名（必填）}
+                      content_base64: {type: string, description: base64 内容（容忍换行）；content 为其别名}
+                tags:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: {type: string, description: 标签名（必填）}
+                      value: {type: string, description: 标签值}
+                channel:
+                  type: string
+                  maxLength: 128
+                  description: 指定发送渠道名（不指定则按轮换规则选路；指定渠道不存在 → 400）
+                template_id: {type: integer, minimum: 1, description: 邮件模板 ID（可选扩展）：渲染结果替换 subject/html/text；与 html/text 同时提供 → 400 body_conflict，模板不存在 → 400 unknown_template}
+                variables: {type: object, additionalProperties: true, description: 模板渲染变量对象（可选扩展，支持嵌套对象点路径取值）；未提供的变量占位符留空并在响应 missing_variables 字段可见}
+            example:
+              from: "CatMail <noreply@example.com>"
+              to: ["user@example.com"]
+              subject: 欢迎注册
+              html: "<p>你好，欢迎注册。</p>"
+              text: 你好，欢迎注册。
+              tags: [{name: type, value: welcome}]
+      responses:
+        "200":
+          description: 已受理（进入轮换调度，含多渠道 failover）
+          content:
+            application/json:
+              example:
+                id: 9f8b7c6d-0000-4000-8000-000000000000
+                channel: 主渠道
+                provider: smtp
+                provider_message_id: "<20260101000000.123@example.com>"
+                accepted: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/UnauthorizedApiKey"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+        "502":
+          $ref: "#/components/responses/ProviderError"
+  /emails:
+    post:
+      operationId: sendMailAlias
+      tags: [发送]
+      summary: 发送邮件（/v1/send 同构别名）
+      description: 与 POST /v1/send 完全同构（Resend SDK 兼容路径）；请求体、鉴权、错误码均一致，仅路径不同。
+      x-auth: Bearer ApiKey
+      security:
+        - bearerApiKey: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: 幂等键，≤128 个可见打印 ASCII 字符；不传 = 不启用去重
+          schema: {type: string, maxLength: 128}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, subject]
+              properties:
+                from: {type: string, description: 发件人（省略时按渠道默认发件人回退）}
+                to:
+                  description: 收件人（必填），字符串或数组
+                  oneOf:
+                    - {type: string}
+                    - {type: array, items: {type: string}}
+                subject: {type: string, description: 主题（必填）}
+                html: {type: string, description: HTML 正文（与 text 至少一个）}
+                text: {type: string, description: 纯文本正文}
+                cc:
+                  description: 抄送（可选）
+                  oneOf:
+                    - {type: string}
+                    - {type: array, items: {type: string}}
+                bcc:
+                  description: 密送（可选）
+                  oneOf:
+                    - {type: string}
+                    - {type: array, items: {type: string}}
+                reply_to:
+                  description: 回复地址（可选，别名 replyTo）
+                  oneOf:
+                    - {type: string}
+                    - {type: array, items: {type: string}}
+                headers: {type: object, additionalProperties: {type: string}, description: 自定义邮件头}
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename: {type: string}
+                      content_base64: {type: string}
+                tags:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name: {type: string}
+                      value: {type: string}
+                channel: {type: string, description: 指定渠道名}
+                template_id: {type: integer, minimum: 1, description: 邮件模板 ID（可选扩展）：渲染结果替换 subject/html/text；与 html/text 同时提供 → 400 body_conflict，模板不存在 → 400 unknown_template}
+                variables: {type: object, additionalProperties: true, description: 模板渲染变量对象（可选扩展，支持嵌套对象点路径取值）；未提供的变量占位符留空并在响应 missing_variables 字段可见}
+            example:
+              to: user@example.com
+              subject: 欢迎注册
+              html: "<p>你好，欢迎注册。</p>"
+      responses:
+        "200":
+          description: 已受理
+          content:
+            application/json:
+              example:
+                id: 9f8b7c6d-0000-4000-8000-000000000000
+                channel: 主渠道
+                provider: smtp
+                provider_message_id: "<20260101000000.123@example.com>"
+                accepted: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/UnauthorizedApiKey"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+        "502":
+          $ref: "#/components/responses/ProviderError"
+  /api/auth/login:
+    post:
+      operationId: login
+      tags: [认证与会话]
+      summary: 登录（第一步）
+      description: |
+        公开端点（配置 CATMAIL_ADMIN_CIDR 时受管理 IP 白名单约束）。
+        凭据校验成功：未启用两步验证 → 签发会话 Cookie 并返回 {username}；
+        已启用两步验证 → 不建会话，返回 {totp_required:true, ticket}（5 分钟短票据），
+        凭票据调用 POST /api/auth/login/totp 完成第二步。
+        登录限流：同一 用户名+IP 组合（及用户名单键）10 分钟窗口内失败 5 次 → 锁定 15 分钟（429）。
+      x-auth: 公开
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: {type: string, description: 用户名}
+                password: {type: string, description: 密码}
+            example: {username: admin, password: "******"}
+      responses:
+        "200":
+          description: 密码正确；未启用两步验证返回 username，已启用返回 ticket
+          content:
+            application/json:
+              examples:
+                plain:
+                  summary: 未启用两步验证（同时 Set-Cookie 签发会话）
+                  value: {username: admin}
+                totp:
+                  summary: 已启用两步验证（未建会话）
+                  value: {totp_required: true, ticket: "t|1767200000|admin|a1b2c3…"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: 用户名或密码错误（不存在/密码错/超长凭据同文案，防枚举）
+          content:
+            application/json:
+              example:
+                error: {type: unauthorized, message: 用户名或密码错误}
+        "429":
+          description: 登录失败限流锁定
+          content:
+            application/json:
+              example:
+                error: {type: quota_exhausted, message: 尝试次数过多，请稍后再试}
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /api/auth/login/totp:
+    post:
+      operationId: loginTotp
+      tags: [认证与会话]
+      summary: 登录第二步（两步验证）
+      description: |
+        公开端点（同受管理 IP 白名单约束）。code 为 6 位 TOTP 动态码或 10 位恢复码
+        （恢复码命中即从库存删除，单次有效）。失败路径（票据无效/过期、码错、账号
+        已删除或已解绑）统一 401，与登录失败文案一致。
+      x-auth: 公开
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket, code]
+              properties:
+                ticket: {type: string, description: 第一步返回的短票据（t|… 格式，5 分钟有效）}
+                code: {type: string, description: 6 位动态码或恢复码}
+            example: {ticket: "t|1767200000|admin|a1b2c3…", code: "123456"}
+      responses:
+        "200":
+          description: 登录成功（Set-Cookie 签发会话）
+          content:
+            application/json:
+              example: {username: admin}
+        "401":
+          description: 票据无效或验证码错误
+          content:
+            application/json:
+              example:
+                error: {type: unauthorized, message: 用户名或密码错误}
+        "429":
+          description: 登录失败限流锁定
+          content:
+            application/json:
+              example:
+                error: {type: quota_exhausted, message: 尝试次数过多，请稍后再试}
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /api/auth/logout:
+    post:
+      operationId: logout
+      tags: [认证与会话]
+      summary: 登出
+      description: 清除会话 Cookie。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 已登出
+          content:
+            application/json:
+              example: {ok: true}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/auth/me:
+    get:
+      operationId: getMe
+      tags: [认证与会话]
+      summary: 当前会话用户
+      description: 返回当前登录用户的 id、用户名与两步验证状态。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 当前用户
+          content:
+            application/json:
+              example: {id: 1, username: admin, totp_enabled: false}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/auth/password:
+    put:
+      operationId: changeOwnPassword
+      tags: [认证与会话]
+      summary: 修改本人密码
+      description: |
+        校验旧密码后更新本人密码（新密码 6-72 字符）。成功后本人 session_epoch+1 并
+        重签当前会话 Cookie：当前会话保持登录，本人其他已签发会话（其他浏览器/标签）全部失效。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_password, new_password]
+              properties:
+                old_password: {type: string, description: 旧密码}
+                new_password: {type: string, minLength: 6, maxLength: 72, description: 新密码（6-72 字符）}
+            example: {old_password: "******", new_password: "******"}
+      responses:
+        "200":
+          description: 修改成功（响应带重签后的 Set-Cookie）
+          content:
+            application/json:
+              example: {ok: true}
+        "400":
+          description: 旧密码错误或新密码不合规（至少 6 字符）
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 旧密码错误}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/sessions:
+    get:
+      operationId: listSessions
+      tags: [认证与会话]
+      summary: 本人活跃会话列表
+      description: |
+        服务端会话注册表中本人未吊销且未过期的会话（安全加固三件套，C），按最后
+        活跃倒序；当前会话带 current 标记。含登录来源 IP 与 User-Agent 快照。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 会话列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: "742a8a29e24f3ceae9930d01971e8aaa"
+                    ip: "203.0.113.7"
+                    user_agent: "Mozilla/5.0 …"
+                    created_at: "2026-01-01T00:00:00+08:00"
+                    last_seen_at: "2026-01-01T08:00:00+08:00"
+                    expires_at: "2026-01-08T00:00:00+08:00"
+                    current: true
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/sessions/{id}:
+    delete:
+      operationId: deleteSession
+      tags: [认证与会话]
+      summary: 踢指定会话
+      description: |
+        吊销本人指定会话（注册表 revoked_at 置位，旧 token 即时失效）；不能下线
+        当前会话（400，请走退出登录）；非本人/不存在/已吊销一律 404（不探测他人
+        会话存在性）。不影响 API Key（联动停用仅密码重置触发）。审计 sessions_revoke。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 会话 ID（GET /api/sessions 返回）
+          schema: {type: string, maxLength: 64}
+      responses:
+        "200":
+          description: 已下线
+          content:
+            application/json:
+              example: {ok: true}
+        "400":
+          description: 目标为当前会话
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 不能下线当前会话（请使用退出登录）}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 会话不存在或已下线
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 会话不存在或已下线}
+  /api/sessions/revoke-others:
+    post:
+      operationId: revokeOtherSessions
+      tags: [认证与会话]
+      summary: 下线其余全部会话
+      description: |
+        吊销本人除当前会话外的全部活跃会话（单条 UPDATE，幂等）；不影响 API Key。
+        审计 sessions_revoke（action=revoke_others）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 下线完成
+          content:
+            application/json:
+              example: {revoked: 2}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/auth/totp/setup:
+    post:
+      operationId: totpSetup
+      tags: [两步验证]
+      summary: 开始绑定两步验证
+      description: 生成 160bit TOTP secret（base32）并暂存（未生效），返回 secret 与 otpauth_url 供认证器扫码；已启用 → 400。secret 只在本次响应出现。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 待扫码确认
+          content:
+            application/json:
+              example:
+                secret: JBSWY3DPEHPK3PXP
+                otpauth_url: "otpauth://totp/CatMail:admin?issuer=CatMail&secret=JBSWY3DPEHPK3PXP"
+        "400":
+          description: 两步验证已启用
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 两步验证已启用}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/auth/totp/enable:
+    post:
+      operationId: totpEnable
+      tags: [两步验证]
+      summary: 确认启用两步验证
+      description: |
+        凭 6 位动态码确认绑定（±1 窗口容差）。成功后生成 8 个恢复码（明文仅本次响应
+        返回，此后任何接口不再返回）；本人 session_epoch+1 并重签当前会话 Cookie。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: {type: string, description: 认证器当前 6 位动态码}
+            example: {code: "123456"}
+      responses:
+        "200":
+          description: 启用成功
+          content:
+            application/json:
+              example:
+                recovery_codes: ["ABCD23EF45", "GH56IJ78KL", "MN90OP12QR", "ST34UV56WX", "YZ78AB90CD", "EF12GH34IJ", "KL56MN78OP", "QR90ST12UV"]
+        "400":
+          description: 未先 setup / 已启用 / 验证码为空
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 请先开始绑定}
+        "401":
+          description: 验证码错误
+          content:
+            application/json:
+              example:
+                error: {type: unauthorized, message: 验证码错误}
+  /api/auth/totp/disable:
+    post:
+      operationId: totpDisable
+      tags: [两步验证]
+      summary: 解绑两步验证
+      description: 凭当前登录密码解绑（不用动态码——手机丢失也可解绑）；清空 secret 与恢复码，本人 session_epoch+1 并重签当前会话。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: {type: string, description: 当前登录密码}
+            example: {password: "******"}
+      responses:
+        "200":
+          description: 解绑成功
+          content:
+            application/json:
+              example: {ok: true}
+        "400":
+          description: 未启用两步验证或密码错误
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 密码错误}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/users:
+    get:
+      operationId: listUsers
+      tags: [用户]
+      summary: 用户列表
+      description: 全部账号（按 id 升序），响应不含任何密码字段。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 用户列表
+          content:
+            application/json:
+              example:
+                items:
+                  - {id: 1, username: admin, created_at: "2026-01-01T00:00:00+08:00"}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+    post:
+      operationId: createUser
+      tags: [用户]
+      summary: 新建账号
+      description: 用户名 2-32 字符、密码 6-72 字符；重名 400；账号总数上限 10 个。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: {type: string, minLength: 2, maxLength: 32, description: 用户名（2-32 字符，唯一）}
+                password: {type: string, minLength: 6, maxLength: 72, description: 密码（6-72 字符）}
+            example: {username: ops, password: "******"}
+      responses:
+        "200":
+          description: 创建成功
+          content:
+            application/json:
+              example: {id: 2, username: ops, created_at: "2026-11-12T00:00:00+08:00"}
+        "400":
+          description: 校验失败（长度/重名/已达上限）
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 用户名已存在}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/users/{id}/password:
+    put:
+      operationId: resetUserPassword
+      tags: [用户]
+      summary: 重置指定账号密码
+      description: 新密码 6-72 字符。成功后目标用户 session_epoch+1，其全部已签发会话立即失效；操作者与其他用户会话不受影响。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 用户 ID
+          schema: {type: integer, minimum: 1}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_password]
+              properties:
+                new_password: {type: string, minLength: 6, maxLength: 72, description: 新密码（6-72 字符）}
+            example: {new_password: "******"}
+      responses:
+        "200":
+          description: 重置成功
+          content:
+            application/json:
+              example: {ok: true}
+        "400":
+          description: 新密码不合规
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 密码至少 6 个字符}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 账号不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 账号不存在}
+  /api/users/{id}:
+    delete:
+      operationId: deleteUser
+      tags: [用户]
+      summary: 删除账号
+      description: 不能删除当前登录账号；必须至少保留一个账号（并发删除竞态下若删空则整体回滚）。目标用户的全部旧会话随行删除即刻失效。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 用户 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              example: {ok: true}
+        "400":
+          description: 不能删除当前登录账号 / 必须至少保留一个账号
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 必须至少保留一个账号}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 账号不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 账号不存在}
+  /api/channels:
+    get:
+      operationId: listChannels
+      tags: [渠道]
+      summary: 渠道列表
+      description: |
+        全部渠道（priority/id 升序）；api_key/api_secret/smtp_pass 掩码、proxy_url
+        凭据段打码；附生效额度（override>0 用 override，否则平台默认）与今日/本月用量，
+        以及近 7 日健康块 health（无日志渠道为 null）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 渠道列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 1
+                    name: 主渠道
+                    provider: smtp
+                    status: 0
+                    priority: 10
+                    api_key: ""
+                    api_secret: ""
+                    domain: ""
+                    region: ""
+                    proxy_url: ""
+                    allowed_domains: ""
+                    from_email: noreply@example.com
+                    from_name: CatMail
+                    smtp_host: smtp.example.com
+                    smtp_port: 465
+                    smtp_user: noreply@example.com
+                    smtp_pass: "****"
+                    smtp_tls: tls
+                    daily_limit_override: 0
+                    monthly_limit_override: 0
+                    rate_limit_per_sec: 0
+                    effective_daily_limit: 500
+                    effective_monthly_limit: 10000
+                    used_day: 12
+                    used_month: 300
+                    cooldown_until: null
+                    consecutive_failures: 0
+                    last_error: ""
+                    auto_disabled_reason: ""
+                    last_used_at: "2026-11-12T09:30:00+08:00"
+                    created_at: "2026-01-01T00:00:00+08:00"
+                    health:
+                      window_days: 7
+                      total: 120
+                      sent: 118
+                      failed: 2
+                      success_rate: 98
+                      last_success_at: "2026-11-12T09:30:00+08:00"
+                      last_failed_at: "2026-11-10T22:00:00+08:00"
+                      top_errors:
+                        - {reason: "dial tcp: connection refused", count: 2}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+    post:
+      operationId: createChannel
+      tags: [渠道]
+      summary: 创建渠道
+      description: |
+        name 必填（1-128 字符，唯一）、provider 必填（合法平台适配器名）；
+        smtp 渠道必须配置 from_email/smtp_host/有效端口，mailgun 渠道必须配置 domain。
+        字段约束：proxy_url 仅 http:// 或 socks5://；region 仅 us/eu；smtp_tls 仅
+        none/starttls/tls；额度覆盖与限速不能为负。秘钥类字段（api_key/api_secret/
+        proxy_url/smtp_pass）创建时按提供值写入。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, provider]
+              properties:
+                name: {type: string, description: 渠道名（1-128 字符，唯一）}
+                provider: {type: string, description: 平台适配器名（如 smtp/resend/mailgun/sendgrid 等）}
+                priority: {type: integer, description: 优先级（越小越优先）}
+                api_key: {type: string, description: 平台 API Key}
+                api_secret: {type: string, description: 平台 API Secret}
+                domain: {type: string, description: 发送域名（mailgun 必填）}
+                region: {type: string, enum: [us, eu, ""], description: 区域（部分平台）}
+                proxy_url: {type: string, description: 出站代理 http:// 或 socks5://（含凭据时响应中打码）}
+                allowed_domains: {type: string, description: 允许的收件域名白名单（逗号分隔，空=不限）}
+                from_email: {type: string, description: 默认发件人邮箱}
+                from_name: {type: string, description: 默认发件人名}
+                smtp_host: {type: string, description: SMTP 主机}
+                smtp_port: {type: integer, description: SMTP 端口（1-65535）}
+                smtp_user: {type: string, description: SMTP 用户名}
+                smtp_pass: {type: string, description: SMTP 密码}
+                smtp_tls: {type: string, enum: [none, starttls, tls, ""], description: TLS 模式}
+                daily_limit_override: {type: integer, description: 日额度覆盖（0=用平台默认）}
+                monthly_limit_override: {type: integer, description: 月额度覆盖（0=用平台默认）}
+                rate_limit_per_sec: {type: integer, description: 出站限速（封/秒，0=不限）}
+            example:
+              name: 主渠道
+              provider: smtp
+              priority: 10
+              from_email: noreply@example.com
+              from_name: CatMail
+              smtp_host: smtp.example.com
+              smtp_port: 465
+              smtp_user: noreply@example.com
+              smtp_pass: "******"
+              smtp_tls: tls
+      responses:
+        "200":
+          description: 创建成功（响应结构同列表项，health 为 null）
+          content:
+            application/json:
+              example:
+                id: 2
+                name: 主渠道
+                provider: smtp
+                status: 0
+                priority: 10
+                smtp_pass: "****"
+                effective_daily_limit: 500
+                effective_monthly_limit: 10000
+                used_day: 0
+                used_month: 0
+                health: null
+        "400":
+          description: 校验失败（重名/未知平台/渠道参数缺失等）
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 渠道名称已存在}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/channels/{id}:
+    put:
+      operationId: updateChannel
+      tags: [渠道]
+      summary: 更新渠道（部分更新）
+      description: |
+        全部字段可选：省略字段=保留原值；非秘钥字符串字段传空串=显式清空；
+        秘钥类字段（api_key/api_secret/proxy_url/smtp_pass）传空串=保留原值
+        （防回显掩码误清凭据），需清空时用 clear_secrets 显式声明。更新成功后
+        status 复位为启用、连续失败/最近错误/自动禁用原因清空、冷却解除。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 渠道 ID
+          schema: {type: integer, minimum: 1}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string, description: 渠道名（1-128 字符，唯一）}
+                provider: {type: string, description: 平台适配器名}
+                priority: {type: integer, description: 优先级}
+                api_key: {type: string, description: 平台 API Key（空串=保留原值）}
+                api_secret: {type: string, description: 平台 API Secret（空串=保留原值）}
+                domain: {type: string, description: 发送域名}
+                region: {type: string, description: 区域 us/eu}
+                proxy_url: {type: string, description: 出站代理（空串=保留原值）}
+                allowed_domains: {type: string, description: 收件域名白名单}
+                from_email: {type: string, description: 默认发件人邮箱}
+                from_name: {type: string, description: 默认发件人名}
+                smtp_host: {type: string, description: SMTP 主机}
+                smtp_port: {type: integer, description: SMTP 端口}
+                smtp_user: {type: string, description: SMTP 用户名}
+                smtp_pass: {type: string, description: SMTP 密码（空串=保留原值）}
+                smtp_tls: {type: string, description: TLS 模式 none/starttls/tls}
+                daily_limit_override: {type: integer, description: 日额度覆盖}
+                monthly_limit_override: {type: integer, description: 月额度覆盖}
+                rate_limit_per_sec: {type: integer, description: 出站限速（封/秒）}
+                clear_secrets:
+                  type: array
+                  items: {type: string, enum: [api_key, api_secret, proxy_url, smtp_pass]}
+                  description: 显式清除的秘钥字段（仅 PUT 生效）；同字段传非空新值时新值生效
+            example:
+              priority: 5
+              smtp_pass: "******"
+      responses:
+        "200":
+          description: 更新成功（脱敏响应同列表项）
+          content:
+            application/json:
+              example:
+                id: 1
+                name: 主渠道
+                provider: smtp
+                status: 0
+                priority: 5
+                smtp_pass: "****"
+                health: null
+        "400":
+          description: 校验失败（clear_secrets 未知字段/渠道参数非法/重名等）
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: "clear_secrets 含未知字段：foo"}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 渠道不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 渠道不存在}
+    delete:
+      operationId: deleteChannel
+      tags: [渠道]
+      summary: 删除渠道
+      description: 删除指定渠道；历史发送日志保留渠道名冗余快照，不受影响。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 渠道 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              example: {ok: true}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 渠道不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 渠道不存在}
+  /api/channels/{id}/status:
+    post:
+      operationId: setChannelStatus
+      tags: [渠道]
+      summary: 渠道启停
+      description: |
+        action=disable：手动停用；action=enable：恢复启用并清冷却与连续失败计数。
+        返回更新后的渠道（脱敏）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 渠道 ID
+          schema: {type: integer, minimum: 1}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: {type: string, enum: [enable, disable], description: 启用/停用}
+            example: {action: disable}
+      responses:
+        "200":
+          description: 状态已更新
+          content:
+            application/json:
+              example:
+                id: 1
+                name: 主渠道
+                status: 1
+                health: null
+        "400":
+          description: action 非法（仅支持 enable/disable）
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: action 仅支持 enable/disable}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 渠道不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 渠道不存在}
+  /api/channels/{id}/test:
+    post:
+      operationId: testChannel
+      tags: [渠道]
+      summary: 渠道直发测试
+      description: |
+        绕过轮换，用该渠道自身配置直发一封测试邮件并记 is_test 日志；失败不触发
+        禁用/冷却/连续失败累计。平台失败仍返回 200，成败经 ok/error 字段上报。
+        渠道当日/当月额度已用尽时不执行发送 → 429（quota_exhausted），不落日志。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 渠道 ID
+          schema: {type: integer, minimum: 1}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: {type: string, maxLength: 320, description: 测试收件邮箱}
+            example: {to: me@example.com}
+      responses:
+        "200":
+          description: 测试已执行（成败经 ok 区分）
+          content:
+            application/json:
+              examples:
+                ok:
+                  summary: 发送成功
+                  value: {ok: true, latency_ms: 320}
+                fail:
+                  summary: 平台失败（仍为 200）
+                  value: {ok: false, latency_ms: 1200, error: "535 Authentication failed"}
+        "400":
+          description: to 无效 / 渠道未配置默认发件人
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 缺少有效收件邮箱 to}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 渠道不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 渠道不存在}
+        "429":
+          description: 渠道额度已用尽
+          content:
+            application/json:
+              example:
+                error: {type: quota_exhausted, message: 渠道当日/当月额度已用尽，测试发送未执行}
+  /api/channels/{id}/duplicate:
+    post:
+      operationId: duplicateChannel
+      tags: [渠道]
+      summary: 复制渠道
+      description: |
+        读原渠道全字段（含 secrets，服务端原样复制、响应仍脱敏）新建副本：
+        副本名 = 原名-副本（重名依次追加 -2/-3）；副本默认手动停用（防止与原渠道
+        并存时意外上线）；运行态归零（用量/锚点/连续失败/最近错误/冷却/自动禁用
+        原因/最近使用时间）。无请求体。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 源渠道 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 复制成功（响应结构同创建接口，health 为 null）
+          content:
+            application/json:
+              example:
+                id: 3
+                name: 主渠道-副本
+                provider: smtp
+                status: 1
+                priority: 10
+                smtp_pass: "****"
+                used_day: 0
+                used_month: 0
+                health: null
+        "400":
+          description: 副本名超长或并发重名冲突
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 渠道名称已存在}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 渠道不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 渠道不存在}
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /api/channels/{id}/webhook-token:
+    post:
+      operationId: rotateChannelWebhookToken
+      tags: [渠道]
+      summary: 渠道入站 webhook token 补生成/轮换
+      description: |
+        送达链路三件套：存量渠道（webhook_token 为空的升级旧行）首次调用补生成
+        token；body rotate=true 时强制轮换，旧 URL 立即失效（平台侧需更新 webhook
+        地址）。空请求体等价 rotate=false（仅补生成）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 渠道 ID
+          schema: {type: integer, minimum: 1}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rotate: {type: boolean, default: false, description: true=强制轮换}
+      responses:
+        "200":
+          description: 返回 token 与相对路径 webhook 地址
+          content:
+            application/json:
+              example:
+                webhook_token: 9f2c…（32 位 hex）
+                webhook_url: /webhooks/mail-events/<token>
+        "400":
+          description: 请求体格式错误
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 渠道不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 渠道不存在}
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /api/mail-events:
+    get:
+      operationId: listMailEvents
+      tags: [送达事件]
+      summary: 送达事件列表
+      description: |
+        入站送达事件分页列表（occurred_at 倒序，不含 raw 大字段）。事件为归一化
+        口径：sent/delivered/bounced（bounce_type=hard|soft）/complained/raw。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema: {type: integer, minimum: 1, default: 1}
+        - name: page_size
+          in: query
+          required: true
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: event
+          in: query
+          schema: {type: string, enum: [sent, delivered, bounced, complained, raw]}
+        - name: bounce_type
+          in: query
+          schema: {type: string, enum: [hard, soft]}
+        - name: channel_id
+          in: query
+          schema: {type: integer, minimum: 1}
+        - name: q
+          in: query
+          description: 收件人模糊（≤128 字符）
+          schema: {type: string, maxLength: 128}
+      responses:
+        "200":
+          description: 事件分页列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 12
+                    channel_id: 1
+                    channel_name: resend主号
+                    provider: resend
+                    event: bounced
+                    bounce_type: hard
+                    provider_message_id: 4ef9a417-02e9-…
+                    message_id: 9c1e…（关联 SendLog.MessageID，未解析为空）
+                    send_log_id: 88
+                    recipient: a@example.com
+                    detail: "原始事件: email.bounced | smtp; 550 5.1.1 user unknown"
+                    occurred_at: "2026-11-14T09:00:00Z"
+                    created_at: "2026-11-14T09:00:01Z"
+                total: 120
+        "400":
+          description: 分页/筛选参数非法
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/mail-events/{id}:
+    get:
+      operationId: getMailEvent
+      tags: [送达事件]
+      summary: 送达事件详情
+      description: 完整详情（含 raw 原始报文，JSON 透传；非法 JSON 报文回退为字符串值）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 事件 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 事件详情（列表项结构 + raw）
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 事件不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 送达事件不存在}
+  /api/suppressions:
+    get:
+      operationId: listSuppressions
+      tags: [送达事件]
+      summary: 抑制列表
+      description: |
+        收件人抑制列表分页查询（created_at 倒序）。reason：bounce（hard bounce
+        事件自动入库）/ complaint（complained 事件自动入库）/ manual（手动添加）。
+        命中抑制列表的收件人在所有发送入口被拒（400 invalid_request，
+        code=recipient_suppressed）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema: {type: integer, minimum: 1, default: 1}
+        - name: page_size
+          in: query
+          required: true
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: reason
+          in: query
+          schema: {type: string, enum: [bounce, complaint, manual]}
+        - name: channel_id
+          in: query
+          schema: {type: integer, minimum: 1}
+        - name: q
+          in: query
+          description: 邮箱模糊（≤128 字符）
+          schema: {type: string, maxLength: 128}
+      responses:
+        "200":
+          description: 抑制列表分页
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 4
+                    email: a@example.com
+                    reason: bounce
+                    channel_id: 1
+                    channel_name: resend主号
+                    detail: "原始事件: email.bounced | …"
+                    created_at: "2026-11-14T09:00:01Z"
+                total: 3
+        "400":
+          description: 分页/筛选参数非法
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+    post:
+      operationId: createSuppression
+      tags: [送达事件]
+      summary: 手动添加抑制
+      description: |
+        手动拉黑收件人（reason 恒为 manual；bounce/complaint 仅由事件自动入库）。
+        重复添加 → 400。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, maxLength: 320, description: 收件邮箱（合法邮箱格式）}
+                detail: {type: string, maxLength: 500, description: 备注说明}
+            example: {email: gone@example.com, detail: 客户已注销}
+      responses:
+        "200":
+          description: 添加成功（返回抑制记录）
+        "400":
+          description: email 无效或已在抑制列表
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 该邮箱已在抑制列表中}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/suppressions/{id}:
+    delete:
+      operationId: deleteSuppression
+      tags: [送达事件]
+      summary: 解除抑制
+      description: |
+        解除（物理删除该行）。注意：解除的是当前抑制状态而非拉黑豁免——同邮箱
+        之后再收到 hard bounce/complaint 事件仍会自动重新入库。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 抑制记录 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 解除成功
+          content:
+            application/json:
+              example: {ok: true}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 抑制记录不存在
+  /webhooks/mail-events/{token}:
+    post:
+      operationId: ingestMailEvent
+      tags: [送达事件]
+      summary: 送达事件入站摄取（公开）
+      description: |
+        公开无会话鉴权的入站事件端点（送达链路三件套）。URL 中 token 为每渠道
+        独立凭据（Channel.webhook_token，管理端点可轮换）。鉴权分层：URL token
+        定位渠道（对无签名平台即共享 secret）；带 Svix 签名头（Resend，密钥为
+        渠道 webhook_secret 的 whsec_ 串）或 Mailgun 签名字段（timestamp+token+
+        signature，密钥为渠道 webhook_secret）时必须验真并防重放。事件归一化为
+        sent/delivered/bounced（hard|soft）/complained/raw 存档；hard bounce 与
+        complained 按系统设置自动入抑制列表；bounced 触发渠道退信率告警判定。
+      x-auth: 渠道 URL token（可选平台签名）
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: 渠道 webhook token（32 位 hex）
+          schema: {type: string, minLength: 32}
+      requestBody:
+        required: true
+        description: 平台事件报文（JSON；Mailgun legacy 兼容 form-urlencoded）
+        content:
+          application/json:
+            examples:
+              resend:
+                summary: Resend（Svix 信封）
+                value:
+                  type: email.bounced
+                  created_at: "2026-11-14T09:00:00Z"
+                  data:
+                    email_id: 4ef9a417-02e9-…
+                    message_id: "<20261114…@mail.example.com>"
+                    to: [a@example.com]
+                    bounce: {message: "smtp; 550 5.1.1 user unknown"}
+              mailgun:
+                summary: Mailgun
+                value:
+                  event: failed
+                  timestamp: 1770146798
+                  recipient: a@example.com
+                  severity: permanent
+                  delivery-status: {code: 550, message: mailbox unavailable}
+                  signature: {timestamp: "1770146798", token: e0b5…, signature: 12d9…}
+          application/x-www-form-urlencoded:
+            schema: {type: object}
+      responses:
+        "200":
+          description: 已摄取（事件已存档或按 raw 兜底）
+          content:
+            application/json:
+              example: {ok: true}
+        "400":
+          description: 请求体读取失败
+        "401":
+          description: 签名校验失败或窗口内重放
+          content:
+            application/json:
+              example:
+                error: {type: unauthorized, message: webhook 签名校验失败}
+        "404":
+          description: token 无效（渠道不存在或已轮换）
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: webhook 地址无效或已轮换}
+  /api/logs:
+    get:
+      operationId: listLogs
+      tags: [发送日志]
+      summary: 发送日志列表
+      description: 分页筛选列表（不含正文大字段）；to_addrs 为收件人数组。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - {name: page, in: query, required: false, schema: {type: integer, minimum: 1, default: 1}, description: 页码}
+        - {name: page_size, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 20}, description: 每页条数}
+        - name: status
+          in: query
+          required: false
+          schema: {type: string, enum: [sent, failed, pending, ""]}
+          description: 按状态筛选（空=全部）
+        - {name: channel_id, in: query, required: false, schema: {type: integer, minimum: 1}, description: 按渠道筛选}
+        - {name: q, in: query, required: false, schema: {type: string, maxLength: 128}, description: 关键词模糊匹配 subject 与收件人}
+        - {name: sort, in: query, required: false, schema: {type: string, enum: [newest, oldest, latency_desc], default: newest}, description: 排序}
+      responses:
+        "200":
+          description: 日志分页列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 42
+                    message_id: 9f8b7c6d-0000-4000-8000-000000000000
+                    api_key_id: 1
+                    channel_id: 1
+                    channel_name: 主渠道
+                    provider: smtp
+                    is_test: false
+                    status: 1
+                    from_addr: noreply@example.com
+                    to_addrs: [user@example.com]
+                    subject: 欢迎注册
+                    provider_message_id: "<20260101000000.123@example.com>"
+                    error: ""
+                    attempts: 1
+                    latency_ms: 310
+                    created_at: "2026-11-12T09:30:00+08:00"
+                total: 1
+        "400":
+          description: 分页/筛选/排序参数非法
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: sort 仅支持 newest/oldest/latency_desc}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/logs/export:
+    get:
+      operationId: exportLogs
+      tags: [发送日志]
+      summary: 导出发送日志 CSV
+      description: |
+        查询参数与列表一致（page/page_size 忽略），流式输出 CSV 下载：
+        Content-Type text/csv; charset=utf-8，文件名 catmail-logs-<UTC时间戳>.csv，
+        开头带 UTF-8 BOM（Excel 中文兼容）；行数上限 10000，达到上限在末尾追加备注行；
+        以 = + - @ 开头的单元格前置单引号（CSV 公式注入防护）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: {type: string, enum: [sent, failed, pending, ""]}
+          description: 按状态筛选
+        - {name: channel_id, in: query, required: false, schema: {type: integer, minimum: 1}, description: 按渠道筛选}
+        - {name: q, in: query, required: false, schema: {type: string, maxLength: 128}, description: 关键词模糊匹配}
+        - {name: sort, in: query, required: false, schema: {type: string, enum: [newest, oldest, latency_desc]}, description: 排序}
+      responses:
+        "200":
+          description: CSV 文件（附件下载）
+          content:
+            text/csv:
+              example: |
+                时间,状态,渠道,平台,发件人,收件人,主题,耗时ms,测试,错误信息,消息ID,备注
+                "2026-11-12T09:30:00+08:00",sent,主渠道,smtp,noreply@example.com,user@example.com,欢迎注册,310,no,,9f8b7c6d,…,
+        "400":
+          description: 筛选/排序参数非法
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: status 仅支持 sent/failed/pending}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/logs/purge:
+    post:
+      operationId: purgeLogs
+      tags: [发送日志]
+      summary: 手动清理发送日志
+      description: |
+        danger 级操作（前端二次确认，服务端记录审计日志）。三种模式：
+        before_days=删除早于 N 天前的日志（days 1-3650）、channel=删除指定渠道全部日志
+        （channel_id 必填）、all=清空全部发送日志。分批删除（每批 500 条）避免长事务。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: {type: string, enum: [before_days, channel, all], description: 清理模式}
+                days: {type: integer, minimum: 1, maximum: 3650, description: mode=before_days 时必填}
+                channel_id: {type: integer, minimum: 1, description: mode=channel 时必填}
+            example: {mode: before_days, days: 90}
+      responses:
+        "200":
+          description: 清理完成
+          content:
+            application/json:
+              example: {deleted: 128}
+        "400":
+          description: mode 非法或 days/channel_id 缺失
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: mode 仅支持 before_days/channel/all}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/logs/{id}:
+    get:
+      operationId: getLog
+      tags: [发送日志]
+      summary: 发送日志详情
+      description: 全字段详情，含 html_body/text_body 正文（受设置「记录邮件正文」开关影响的历史行可能为空）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 日志 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 日志详情
+          content:
+            application/json:
+              example:
+                id: 42
+                message_id: 9f8b7c6d-0000-4000-8000-000000000000
+                api_key_id: 1
+                channel_id: 1
+                channel_name: 主渠道
+                provider: smtp
+                is_test: false
+                status: 1
+                from_addr: noreply@example.com
+                to_addrs: [user@example.com]
+                subject: 欢迎注册
+                provider_message_id: "<20260101000000.123@example.com>"
+                error: ""
+                attempts: 1
+                latency_ms: 310
+                created_at: "2026-11-12T09:30:00+08:00"
+                html_body: "<p>你好，欢迎注册。</p>"
+                text_body: 你好，欢迎注册。
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 日志不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 日志不存在}
+  /api/logs/{id}/resend:
+    post:
+      operationId: resendLog
+      tags: [发送日志]
+      summary: 按日志重发邮件
+      description: |
+        按日志快照（from/to/subject/html/text）原样重发一封邮件，走正常轮换
+        （不指定渠道，由当前可用渠道送出），生成新 message_id 并落一条 is_test=false
+        新日志；headers/附件/标签不在快照内，重发不含。正文缺失（隐私开关历史行）
+        → 400。防滥用：同一日志 30 秒内仅允许重发一次（429 quota_exhausted）。
+        无请求体。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 日志 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 重发已受理（响应结构同发送接口）
+          content:
+            application/json:
+              example:
+                id: b1a2c3d4-0000-4000-8000-000000000001
+                channel: 主渠道
+                provider: smtp
+                provider_message_id: "<20260101000001.456@example.com>"
+                accepted: true
+        "400":
+          description: 日志未记录正文或缺少收件人
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 该日志未记录正文，无法重发}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 日志不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 日志不存在}
+        "429":
+          description: 30 秒重发闸 / 轮换无可用渠道
+          content:
+            application/json:
+              example:
+                error: {type: quota_exhausted, message: 该日志 30 秒内已重发过，请稍后再试}
+        "500":
+          $ref: "#/components/responses/ServerError"
+        "502":
+          $ref: "#/components/responses/ProviderError"
+  /api/keys:
+    get:
+      operationId: listKeys
+      tags: [API Key]
+      summary: Key 列表
+      description: |
+        key 一律掩码（cm-abcd…wxyz）；webhook_url/webhook_events 为调用方回执配置
+        （URL 非凭据，明文回显）；daily_quota/rate_per_sec 为调用方维度配额与限速
+        （0=不限）；total_sent 为该 key 发送成功总数（含测试发送）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Key 列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 1
+                    name: 业务系统
+                    masked_key: cm-abcd…wxyz
+                    enabled: true
+                    webhook_url: "https://cb.example.com/hook"
+                    webhook_events: send_accepted,send_failed
+                    daily_quota: 0
+                    rate_per_sec: 0
+                    total_sent: 1024
+                    last_used_at: "2026-11-12T09:30:00+08:00"
+                    created_at: "2026-01-01T00:00:00+08:00"
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+    post:
+      operationId: createKey
+      tags: [API Key]
+      summary: 新建 Key
+      description: 生成 cm- 前缀 32 位随机 hex 密钥；明文仅本次响应返回一次（此后仅掩码）。名称 1-64 字符；daily_quota/rate_per_sec 非负（0=不限，默认）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1, maxLength: 64, description: Key 名称（1-64 字符）}
+                daily_quota: {type: integer, minimum: 0, default: 0, description: 该 Key 日发送上限（0=不限）}
+                rate_per_sec: {type: integer, minimum: 0, default: 0, description: 该 Key 限速（封/秒，0=不限）}
+            example: {name: 业务系统, daily_quota: 1000, rate_per_sec: 5}
+      responses:
+        "200":
+          description: 创建成功（key 明文仅此一次返回）
+          content:
+            application/json:
+              example:
+                id: 2
+                name: 业务系统
+                key: cm-0123456789abcdef0123456789abcdef
+        "400":
+          description: 名称/配额参数非法
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: daily_quota 不能为负数（0=不限）}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/keys/{id}:
+    put:
+      operationId: updateKey
+      tags: [API Key]
+      summary: 更新 Key
+      description: |
+        全部字段可选（未提供=保留）：name（1-64 字符）、enabled 启停、
+        webhook_url（非空须为可解析 http(s)://，空串=清除回执推送）、
+        webhook_events（send_accepted/send_failed 逗号子集，空串=清除）、
+        daily_quota/rate_per_sec（显式 0=改为不限，负数整体拒绝）。
+        响应结构与列表一致（掩码 key）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Key ID
+          schema: {type: integer, minimum: 1}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string, minLength: 1, maxLength: 64, description: 名称}
+                enabled: {type: boolean, description: 启用/停用}
+                webhook_url: {type: string, description: 调用方回执地址（空串=清除）}
+                webhook_events: {type: string, description: 回执事件白名单 csv（空串=清除）}
+                daily_quota: {type: integer, minimum: 0, description: 日配额（0=不限）}
+                rate_per_sec: {type: integer, minimum: 0, description: 限速（0=不限）}
+            example: {enabled: false}
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              example:
+                id: 1
+                name: 业务系统
+                masked_key: cm-abcd…wxyz
+                enabled: false
+                webhook_url: ""
+                webhook_events: ""
+                daily_quota: 0
+                rate_per_sec: 0
+                total_sent: 1024
+                last_used_at: "2026-11-12T09:30:00+08:00"
+                created_at: "2026-01-01T00:00:00+08:00"
+        "400":
+          description: 字段校验失败
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: webhook_url 必须是合法的 http(s):// 地址}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: Key 不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: API Key 不存在}
+    delete:
+      operationId: deleteKey
+      tags: [API Key]
+      summary: 删除 Key
+      description: 删除后该 Key 立即失效（调用方 401）；历史发送日志保留。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Key ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              example: {ok: true}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: Key 不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: API Key 不存在}
+  /api/keys/{id}/webhook/test:
+    post:
+      operationId: testKeyWebhook
+      tags: [API Key]
+      summary: 调用方回执连通性测试
+      description: |
+        向该 Key 已配置的回执地址（webhook_url）发送一条测试回执（event=test，
+        单次尝试不重试、5s 超时），供 Key 编辑弹窗直接展示结果。与通知通道测试
+        同风格：恒 200，成败经 ok/error 字段上报；未配置 URL → 400。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Key ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 测试结果（推送本身可能失败，经 ok 字段区分）
+          content:
+            application/json:
+              examples:
+                ok:
+                  summary: 推送成功
+                  value: {ok: true}
+                pushFail:
+                  summary: 目标地址不可达/非 2xx
+                  value: {ok: false, error: "post https://…: connection refused"}
+        "400":
+          description: 该 Key 未配置回执 Webhook URL
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 该 Key 未配置回执 Webhook URL}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: Key 不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: API Key 不存在}
+  /api/keys/{id}/webhook-secret:
+    post:
+      operationId: resetKeyWebhookSecret
+      tags: [API Key]
+      summary: 轮换回执签名密钥
+      description: |
+        重置该 Key 的回执 Webhook 签名密钥（32 字节随机 hex；创建 Key 时已自动生成，
+        安全加固三件套，B），返回新值供管理页展示/复制。轮换后存量未投递的 outbox
+        回执任务按新值签名，调用方需同步更新校验密钥。secret 值不入审计。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Key ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 新密钥（仅本次响应返回明文）
+          content:
+            application/json:
+              example: {webhook_secret: "3f9a…（64 位 hex）"}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: Key 不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: API Key 不存在}
+  /api/templates:
+    get:
+      operationId: listTemplates
+      tags: [邮件模板]
+      summary: 模板列表
+      description: 全部邮件模板（id 升序）；列表不含正文大字段，正文走详情接口。variables 为模板变量清单（创建/更新未显式提供时按 subject/html/text 内容自动提取）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 模板列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 1
+                    name: 欢迎邮件
+                    subject: "欢迎 {{name}}"
+                    variables: [name, code]
+                    created_at: "2026-01-01T00:00:00+08:00"
+                    updated_at: "2026-01-01T00:00:00+08:00"
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+    post:
+      operationId: createTemplate
+      tags: [邮件模板]
+      summary: 新建模板
+      description: |
+        name/subject 必填；html/text 至少一个非空（各 ≤1MB 字符，subject ≤998 字符）。
+        variables 未提供时按内容自动提取（{{var}} 占位符），显式提供则以清单为准
+        （≤100 条、单项 ≤128 字符）。重名 → 400；成功落审计 template_create。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, subject]
+              properties:
+                name: {type: string, minLength: 1, maxLength: 128, description: 模板名称（唯一）}
+                subject: {type: string, minLength: 1, maxLength: 998, description: "模板主题（支持 {{var}} 占位符）"}
+                html: {type: string, description: HTML 正文（占位符渲染时变量做 HTML 转义）}
+                text: {type: string, description: 纯文本正文}
+                variables:
+                  type: array
+                  items: {type: string}
+                  description: 显式变量清单（可选，缺省自动提取；空数组=清空）
+            example: {name: 欢迎邮件, subject: "欢迎 {{name}}", html: "<p>欢迎 {{name}}</p>", text: "欢迎 {{name}}"}
+      responses:
+        "200":
+          description: 创建成功（返回含正文的完整详情）
+        "400":
+          description: 参数校验失败/重名
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 模板名称已存在}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/templates/{id}:
+    get:
+      operationId: getTemplate
+      tags: [邮件模板]
+      summary: 模板详情
+      description: 完整字段（含 html_body/text_body）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 模板 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 模板详情
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 模板不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 模板不存在}
+    put:
+      operationId: updateTemplate
+      tags: [邮件模板]
+      summary: 编辑模板
+      description: |
+        指针字段语义：省略 = 保留原值；variables 未提供时按合并后内容重新提取，
+        显式提供（含空数组）则以清单为准。重名 → 400；成功落审计 template_update
+        （仅记变更字段名，值不入审计）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 模板 ID
+          schema: {type: integer, minimum: 1}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string, description: 模板名称（省略=保留）}
+                subject: {type: string, description: 模板主题（省略=保留）}
+                html: {type: string, description: HTML 正文（省略=保留，显式空串=清空）}
+                text: {type: string, description: 纯文本正文（省略=保留，显式空串=清空）}
+                variables:
+                  type: array
+                  items: {type: string}
+                  description: 显式变量清单（省略=按内容重新提取）
+      responses:
+        "200":
+          description: 更新成功（返回完整详情）
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 模板不存在
+    delete:
+      operationId: deleteTemplate
+      tags: [邮件模板]
+      summary: 删除模板
+      description: 删除模板；历史发送日志保留 template_id 供追溯（模板删除后日志详情显示为 ID）。成功落审计 template_delete。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 模板 ID
+          schema: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              example: {ok: true}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 模板不存在
+  /api/stats/overview:
+    get:
+      operationId: statsOverview
+      tags: [统计]
+      summary: 仪表盘总览
+      description: 今日发送/失败计数、本月成功数、今日成功率（0-100，排除测试发送）与各渠道用量（含生效额度与最近错误）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 总览数据
+          content:
+            application/json:
+              example:
+                today_sent: 120
+                today_failed: 3
+                month_sent: 2048
+                success_rate: 98
+                channels:
+                  - id: 1
+                    name: 主渠道
+                    provider: smtp
+                    status: 0
+                    used_day: 120
+                    effective_daily_limit: 500
+                    used_month: 2048
+                    effective_monthly_limit: 10000
+                    last_error: ""
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/stats/daily:
+    get:
+      operationId: statsDaily
+      tags: [统计]
+      summary: 逐日发送曲线
+      description: 本地时区按天分桶（含今天，缺数据日补 0），日期为 MM-DD 形态；排除测试发送。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - {name: days, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 90, default: 30}, description: 统计天数}
+        - {name: channel_id, in: query, required: false, schema: {type: integer, minimum: 1}, description: 按渠道筛选（可选）}
+      responses:
+        "200":
+          description: 逐日统计
+          content:
+            application/json:
+              example:
+                items:
+                  - {date: "11-05", sent: 42, failed: 1}
+                  - {date: "11-06", sent: 51, failed: 0}
+        "400":
+          description: days/channel_id 非法
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: days 必须为 1-90 的整数}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/notifications:
+    get:
+      operationId: listNotifications
+      tags: [通知]
+      summary: 通知列表
+      description: 分页列表（created_at/id 倒序），附带 total 与未读数 unread。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - {name: page, in: query, required: false, schema: {type: integer, minimum: 1, default: 1}, description: 页码}
+        - {name: page_size, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 20}, description: 每页条数}
+      responses:
+        "200":
+          description: 通知分页列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 7
+                    event: channel_disabled
+                    level: critical
+                    title: 渠道已自动禁用
+                    body: 渠道「主渠道」连续失败达到阈值，已自动禁用。
+                    channel_id: 1
+                    read: false
+                    created_at: "2026-11-12T08:00:00+08:00"
+                total: 7
+                unread: 2
+        "400":
+          description: 分页参数非法
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: page 必须为 ≥1 的整数}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/notifications/unread_count:
+    get:
+      operationId: unreadCount
+      tags: [通知]
+      summary: 未读通知数
+      description: 顶栏轮询接口，返回当前未读通知总数。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 未读数
+          content:
+            application/json:
+              example: {count: 2}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/notifications/read:
+    post:
+      operationId: markNotificationsRead
+      tags: [通知]
+      summary: 标记通知已读
+      description: |
+        ids=null（或省略）= 全部标记已读；ids=[] = 空集无操作；ids=[1,2] = 标记指定 id。
+        幂等（已读行不重复计数），返回本次实际标记条数。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  description: 通知 id 数组；null=全部，[]=无操作
+                  oneOf:
+                    - {type: "null"}
+                    - {type: array, items: {type: integer}}
+            example: {ids: [7, 8]}
+      responses:
+        "200":
+          description: 标记完成
+          content:
+            application/json:
+              example: {ok: true, updated: 2}
+        "400":
+          description: 请求体格式错误
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 请求体格式错误}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/settings:
+    get:
+      operationId: getSettings
+      tags: [设置]
+      summary: 读取系统设置
+      description: |
+        返回全部系统设置；session_secret 不对外暴露。weak_admin_password 为附加提示位：
+        首启种子账号（admin）是否命中常见弱口令清单。notify_events 为逗号分隔事件白名单，
+        空串=全部事件。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 当前设置
+          content:
+            application/json:
+              example:
+                rotation: priority
+                max_attempts: 3
+                cooldown_seconds: 60
+                consecutive_failure_threshold: 5
+                log_retention_days: 90
+                notify_inapp_enabled: true
+                notify_webhook_enabled: false
+                notify_webhook_url: ""
+                notify_events: ""
+                log_body_enabled: true
+                backup_daily_enabled: false
+                weak_admin_password: false
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+    put:
+      operationId: putSettings
+      tags: [设置]
+      summary: 更新系统设置
+      description: |
+        全量提交。范围校验：rotation 仅 priority/round_robin；max_attempts 1-10；
+        cooldown_seconds ≥1；consecutive_failure_threshold 3-20；
+        log_retention_days 0-365（0=永久保留）；notify_webhook_enabled=true 时
+        notify_webhook_url 必须为 http(s)://；notify_events 仅允许五事件 token
+        （channel_disabled/channel_cooldown/channel_recovered/send_failed/
+        update_available）的逗号子集，空串规范化为全事件。成功返回规范化后的请求体。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rotation, max_attempts, cooldown_seconds, consecutive_failure_threshold, log_retention_days]
+              properties:
+                rotation: {type: string, enum: [priority, round_robin], description: 轮换策略}
+                max_attempts: {type: integer, minimum: 1, maximum: 10, description: 单封最大尝试渠道数}
+                cooldown_seconds: {type: integer, minimum: 1, description: 429 冷却时长（秒）}
+                consecutive_failure_threshold: {type: integer, minimum: 3, maximum: 20, description: 自动禁用的连续失败阈值}
+                log_retention_days: {type: integer, minimum: 0, maximum: 365, description: 日志保留天数（0=永久）}
+                notify_inapp_enabled: {type: boolean, description: 站内通知开关}
+                notify_webhook_enabled: {type: boolean, description: Webhook 通知开关}
+                notify_webhook_url: {type: string, description: Webhook 地址（启用时必填 http(s)://）}
+                notify_events: {type: string, description: 通知事件白名单 csv（空=全部）}
+                log_body_enabled: {type: boolean, description: 记录邮件正文开关（只影响新日志）}
+                backup_daily_enabled: {type: boolean, description: 每日自动备份开关}
+            example:
+              rotation: priority
+              max_attempts: 3
+              cooldown_seconds: 60
+              consecutive_failure_threshold: 5
+              log_retention_days: 90
+              notify_inapp_enabled: true
+              notify_webhook_enabled: false
+              notify_webhook_url: ""
+              notify_events: ""
+              log_body_enabled: true
+              backup_daily_enabled: false
+      responses:
+        "200":
+          description: 更新成功（返回规范化后的设置）
+          content:
+            application/json:
+              example:
+                rotation: priority
+                max_attempts: 3
+                cooldown_seconds: 60
+                consecutive_failure_threshold: 5
+                log_retention_days: 90
+                notify_inapp_enabled: true
+                notify_webhook_enabled: false
+                notify_webhook_url: ""
+                notify_events: "channel_disabled,channel_cooldown,channel_recovered,send_failed,update_available"
+                log_body_enabled: true
+                backup_daily_enabled: false
+        "400":
+          description: 取值越界
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: max_attempts 取值范围 1-10}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/settings/notify/test:
+    post:
+      operationId: testNotify
+      tags: [设置]
+      summary: 通知通道连通性测试
+      description: |
+        按「已保存」的通知设置实测双通道：站内通道直接落一条测试通知（不经事件白名单
+        与开关）；webhook 通道仅在已启用时实测（未启用视为通过）。恒 200，成败经字段上报。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 测试结果
+          content:
+            application/json:
+              examples:
+                ok:
+                  summary: 双通道正常
+                  value: {inapp_ok: true, webhook_ok: true, webhook_error: ""}
+                webhookFail:
+                  summary: Webhook 失败
+                  value: {inapp_ok: true, webhook_ok: false, webhook_error: "post https://…: connection refused"}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /api/settings/notify/webhook-secret:
+    post:
+      operationId: rotateNotifyWebhookSecret
+      tags: [设置]
+      summary: 通知 Webhook 签名密钥生成/轮换
+      description: |
+        生成或轮换通知 Webhook 的签名密钥（32 字节随机 hex，安全加固三件套，B），
+        返回新值供设置卡片展示/复制。rotate=false（缺省）仅在未配置时生成；
+        rotate=true 强制轮换。PUT /api/settings 忽略 notify_webhook_secret 字段，
+        变更仅经本端点。轮换后存量未投递的 outbox 通知任务按新值签名。secret 值
+        不入审计（审计动作 settings_webhook_secret）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rotate: {type: boolean, default: false, description: true=强制轮换；false=仅在未配置时生成}
+      responses:
+        "200":
+          description: 当前生效的签名密钥
+          content:
+            application/json:
+              example: {webhook_secret: "9c1e…（64 位 hex）"}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/webhook-deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      tags: [设置]
+      summary: Webhook 投递记录列表
+      description: |
+        outbox 投递档案分页列表（安全加固三件套，B，id 倒序）供排查：通知 webhook
+        与调用方回执统一落 webhook_deliveries 表后由 scheduler 每分钟驱动投递
+        （指数退避 1m→5m→30m→2h→8h→24h 封顶，10 次失败转 dead，dead 保留最近
+        100 条）。不含 payload 大字段。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - {name: page, in: query, required: false, schema: {type: integer, minimum: 1, default: 1}, description: 页码}
+        - {name: page_size, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 20}, description: 每页条数}
+        - {name: status, in: query, required: false, schema: {type: string, enum: [pending, sent, dead]}, description: 状态筛选}
+        - {name: event_type, in: query, required: false, schema: {type: string, maxLength: 64}, description: 事件类型精确筛选}
+      responses:
+        "200":
+          description: 投递记录分页列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 12
+                    event_type: send_failed
+                    url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+                    secret_ref: "settings:notify_webhook_secret"
+                    attempts: 3
+                    status: pending
+                    last_error: "投递失败: 502 Bad Gateway"
+                    next_retry_at: "2026-01-01T08:30:00+08:00"
+                    created_at: "2026-01-01T08:00:00+08:00"
+                    updated_at: "2026-01-01T08:06:00+08:00"
+                total: 1
+        "400":
+          description: status 取值非法
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: status 仅支持 pending/sent/dead}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/audit:
+    get:
+      operationId: listAuditLogs
+      tags: [审计]
+      summary: 审计日志列表
+      description: |
+        管理操作审计分页列表（E4，created_at/id 倒序）。渠道/Key/账号的系统设置、
+        发送日志清理与备份管理写操作在**成功后**各记一条（失败不记）；detail 只含
+        字段名/计数等非敏感摘要，密码、API Key 明文、渠道秘钥一律不入审计。
+        保留最近 5000 条（每小时定时裁剪）。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - {name: page, in: query, required: false, schema: {type: integer, minimum: 1, default: 1}, description: 页码}
+        - {name: page_size, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 20}, description: 每页条数}
+        - {name: action, in: query, required: false, schema: {type: string, maxLength: 64}, description: 动作前缀筛选（如 channel 命中全部 channel_* 动作；转义 LIKE 通配符）}
+        - {name: username, in: query, required: false, schema: {type: string, maxLength: 64}, description: 操作者精确筛选}
+      responses:
+        "200":
+          description: 审计分页列表
+          content:
+            application/json:
+              example:
+                items:
+                  - id: 9
+                    username: admin
+                    action: channel_create
+                    target: "channel#3 name=示例渠道"
+                    detail: "provider=mock priority=0"
+                    ip: "192.168.1.10"
+                    created_at: "2026-11-12T08:00:00+08:00"
+                total: 9
+        "400":
+          description: 分页/筛选参数非法
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: page_size 必须为 1-100 的整数}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/update/check:
+    get:
+      operationId: updateCheck
+      tags: [更新]
+      summary: 检查自动更新
+      description: |
+        查询 GitHub Releases 最新版本并与当前版本比较（E8）。结果进程内缓存 1 小时。
+        update_available 为手写受限 semver 比较结果（去 v 前缀、按 "." 分段数字比较、
+        位数不齐补 0）；任一侧解析失败视为不可比，如实返回 update_available=false 并
+        在 error 中说明。GitHub 网络/限流错误不视为服务器故障：HTTP 200 + error 字段
+        如实返回（不缓存错误）。in_docker=true 时 apply 恒拒绝，前端应隐藏一键更新。
+        需配置 CATMAIL_UPDATE_REPO（owner/repo），未配置返回 400。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 检查结果（GitHub 失败时 error 非空，其余字段降级）
+          content:
+            application/json:
+              examples:
+                updateAvailable:
+                  summary: 发现新版本
+                  value:
+                    current: v1.2.0
+                    latest: v1.3.0
+                    update_available: true
+                    release_url: https://github.com/owner/catmail/releases/tag/v1.3.0
+                    notes: "本次更新内容……"
+                    published_at: "2026-11-01T08:00:00Z"
+                    checked_at: "2026-11-12T08:00:00+08:00"
+                    in_docker: false
+                upToDate:
+                  summary: 已是最新
+                  value:
+                    current: v1.3.0
+                    latest: v1.3.0
+                    update_available: false
+                    release_url: https://github.com/owner/catmail/releases/tag/v1.3.0
+                    checked_at: "2026-11-12T08:00:00+08:00"
+                    in_docker: false
+                githubError:
+                  summary: GitHub 网络/限流失败（如实返回，不缓存）
+                  value:
+                    current: v1.3.0
+                    update_available: false
+                    checked_at: "2026-11-12T08:00:00+08:00"
+                    in_docker: false
+                    error: "GitHub API 限流（匿名额度已用尽，约 1 小时后恢复）"
+        "400":
+          description: 功能未启用（未配置 CATMAIL_UPDATE_REPO）
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: "自动更新未启用（未配置 CATMAIL_UPDATE_REPO）"}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+  /api/update/apply:
+    post:
+      operationId: updateApply
+      tags: [更新]
+      summary: 一键更新（下载并原子替换当前可执行文件）
+      description: |
+        下载当前平台 release 资产（命名约定 catmail_<os>_<arch>，Windows 追加 .exe）
+        与 checksums.txt，SHA-256 强校验后写入当前可执行文件同目录临时文件（fsync）
+        再 rename 原子替换；重启进程后生效。安全约束（拒绝即 400）：
+        容器部署（/.dockerenv 或 CATMAIL_IN_DOCKER=1，请拉取新镜像升级）；
+        Windows（运行中 exe 无法 rename，返回手动替换指引）；
+        release 缺少 checksums.txt（缺校验文件没有完整性依据，宁拒勿装）；
+        SHA-256 不匹配（绝不落盘）；磁盘剩余空间 < 2× 更新包大小；已有更新进行中。
+        成功返回 {ok, installed_version, hint}，重启 catmail 生效。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 已安装更新（重启生效）
+          content:
+            application/json:
+              example:
+                ok: true
+                installed_version: v1.3.0
+                hint: 重启 catmail 生效，可用 catmail doctor 验证
+        "400":
+          description: 环境不支持或校验失败（容器/Windows/缺校验文件/校验不匹配/磁盘不足/并发更新/已是最新）
+          content:
+            application/json:
+              examples:
+                docker:
+                  summary: 容器部署
+                  value:
+                    error: {type: invalid_request, message: "检测到容器部署，请通过拉取新镜像升级（docker pull 后重建容器），不支持文件级自更新"}
+                noChecksum:
+                  summary: 缺少校验文件
+                  value:
+                    error: {type: invalid_request, message: "缺少校验文件 checksums.txt，拒绝更新"}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /api/backups:
+    get:
+      operationId: listBackups
+      tags: [数据管理]
+      summary: 备份列表
+      description: 整库备份文件列表（name/size/created_at，按时间倒序）；尚无备份时返回空列表。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 备份列表
+          content:
+            application/json:
+              example:
+                items:
+                  - {name: catmail-backup-20261112-030000.db, size: 1048576, created_at: "2026-11-12T03:00:00+08:00"}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+    post:
+      operationId: createBackup
+      tags: [数据管理]
+      summary: 创建备份
+      description: |
+        SQLite VACUUM INTO 生成整库快照到数据目录 backups/ 下，并裁剪仅保留最近 10 份；
+        服务端记录操作审计日志。恢复方式见部署文档。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 备份完成
+          content:
+            application/json:
+              example: {name: catmail-backup-20261112-030000.db, size: 1048576}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /api/backups/{name}/download:
+    get:
+      operationId: downloadBackup
+      tags: [数据管理]
+      summary: 下载备份文件
+      description: name 严格白名单（正则 catmail-backup-\d{8}-\d{6}\.db），不含路径分隔符，无路径穿越面；以附件形式直出文件。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: 备份文件名（白名单格式）
+          schema: {type: string, pattern: "^catmail-backup-[0-9]{8}-[0-9]{6}\\.db$"}
+      responses:
+        "200":
+          description: 备份文件（application/octet-stream 附件）
+          content:
+            application/octet-stream:
+              example: "<SQLite 二进制内容>"
+        "400":
+          description: 文件名不符合白名单
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 无效的备份文件名}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 备份文件不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 备份文件不存在}
+  /api/backups/{name}:
+    delete:
+      operationId: deleteBackup
+      tags: [数据管理]
+      summary: 删除备份
+      description: 删除指定备份文件（name 同下载白名单）；服务端记录审计日志。
+      x-auth: 会话 Cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: 备份文件名（白名单格式）
+          schema: {type: string, pattern: "^catmail-backup-[0-9]{8}-[0-9]{6}\\.db$"}
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              example: {ok: true}
+        "400":
+          description: 文件名不符合白名单
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 无效的备份文件名}
+        "401":
+          $ref: "#/components/responses/UnauthorizedSession"
+        "404":
+          description: 备份文件不存在
+          content:
+            application/json:
+              example:
+                error: {type: invalid_request, message: 备份文件不存在}
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: catmail_session
+      description: 登录签发的 HMAC 会话 Cookie（7 天有效，HttpOnly；配置 CATMAIL_COOKIE_SECURE 时附加 Secure）
+    bearerApiKey:
+      type: http
+      scheme: bearer
+      description: 「API Key」页创建的密钥（cm- 前缀，明文仅创建时返回一次；停用/删除即失效）
+  schemas:
+    Error:
+      type: object
+      description: 统一错误体（非 2xx 响应一律此形态）
+      properties:
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              description: |
+                错误类型：invalid_request=参数/资源错误（400/404/409）、
+                unauthorized=未认证或凭据无效（401）、forbidden=来源 IP 不在管理白名单（403）、
+                quota_exhausted=额度用尽/登录限流锁定（429）、rate_limited=调用方限速（429）、
+                provider_error=上游平台失败（502）、server_error=服务器内部错误（500）
+            message:
+              type: string
+              description: 人类可读中文文案；内部错误只返回通用文案
+      example:
+        error: {type: invalid_request, message: 请求体格式错误}
+    AuditLog:
+      type: object
+      description: |
+        管理操作审计日志行（E4）。action 为前缀枚举：channel_*（渠道）、key_*（API Key）、
+        user_*（账号）、settings_*（系统设置）、purge_*（日志清理）、backup_*（备份）；
+        detail/target 仅含字段名、计数与资源名等非敏感摘要。
+      properties:
+        id:
+          type: integer
+          description: 审计行 id（自增，与 created_at 单调一致）
+        username:
+          type: string
+          description: 操作者（会话用户名）
+        action:
+          type: string
+          description: 动作枚举：channel_create/channel_update/channel_delete/channel_status/channel_duplicate、
+            key_create/key_update/key_delete、user_create/user_reset_password/user_delete、
+            settings_update、purge_logs、backup_create/backup_delete
+        target:
+          type: string
+          description: 目标摘要，形如 "channel#3 name=示例渠道"
+        detail:
+          type: string
+          description: 补充摘要（≤500 字符截断；settings_update 为变更字段名清单，不含任何字段值）
+        ip:
+          type: string
+          description: 操作来源 IP（c.ClientIP()，反代部署依赖可信代理配置）
+        created_at:
+          type: string
+          format: date-time
+      example:
+        id: 9
+        username: admin
+        action: settings_update
+        target: settings#1
+        detail: "fields=rotation,log_retention_days"
+        ip: "192.168.1.10"
+        created_at: "2026-11-12T08:00:00+08:00"
+  responses:
+    BadRequest:
+      description: 请求参数错误（400）
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+          example:
+            error: {type: invalid_request, message: 请求体格式错误}
+    UnauthorizedSession:
+      description: 未登录或会话失效（401）；同时 Set-Cookie 清除会话
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+          example:
+            error: {type: unauthorized, message: 未登录或会话已过期}
+    UnauthorizedApiKey:
+      description: 缺少 Bearer ApiKey 或 ApiKey 无效/停用（401）
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+          example:
+            error: {type: unauthorized, message: ApiKey 无效或已停用}
+    IdempotencyConflict:
+      description: 相同 Idempotency-Key 的请求正在处理中（409，稍后重试可取回结果）
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+          example:
+            error: {type: invalid_request, message: 相同的 Idempotency-Key 请求正在处理中}
+    RateLimited:
+      description: 触发限流/额度约束（429）：rate_limited=调用方限速（rate_per_sec）、quota_exhausted=调用方日配额或登录失败锁定
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+          example:
+            error: {type: rate_limited, message: 请求过于频繁（rate_per_sec 限制）}
+    ProviderError:
+      description: 轮换候选渠道全部尝试失败（502，发送终态）
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+          example:
+            error: {type: provider_error, message: 已尝试 2 个渠道均发送失败：535 Authentication failed}
+    ServerError:
+      description: 服务器内部错误（500，详情仅入服务端日志）
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+          example:
+            error: {type: server_error, message: 服务器内部错误}

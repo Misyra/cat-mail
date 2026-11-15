@@ -1,0 +1,18 @@
+{
+  "title": "Get started with CatMail",
+  "intro": "Complete these three steps to finish setup; any order works.",
+  "skip": "Skip tour",
+  "progressAria_one": "{{count}} of {{total}} steps completed",
+  "progressAria_other": "{{count}} of {{total}} steps completed",
+  "step": {
+    "passwordTitle": "Change the admin password",
+    "passwordDesc": "The initial weak password is still in use; change it soon.",
+    "channelTitle": "Create your first channel",
+    "channelDesc": "A mock sample channel comes preloaded on first launch and doesn't count.",
+    "keyTitle": "Create an API key",
+    "keyDesc": "Used to authenticate send requests made through the API.",
+    "done": "Done",
+    "pendingAria": "Pending",
+    "go": "Start"
+  }
+}

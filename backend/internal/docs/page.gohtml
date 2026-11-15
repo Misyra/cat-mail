@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CatMail API 文档</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f6f8fa; --fg: #1f2937; --muted: #6b7280; --card: #ffffff;
+  --border: #e5e7eb; --code-bg: #eef2f6; --chip-bg: #e5e7eb; --pre-bg: #f3f4f6;
+  --get: #2563eb; --post: #16a34a; --put: #b45309; --del: #dc2626; --patch: #7c3aed;
+  --link: #2563eb; --ok: #16a34a; --warn: #b45309; --err: #dc2626;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220; --fg: #dbe2ea; --muted: #8b98a9; --card: #121a2a;
+    --border: #253048; --code-bg: #1a2438; --chip-bg: #1d2841; --pre-bg: #0e1626;
+    --get: #60a5fa; --post: #4ade80; --put: #fbbf24; --del: #f87171; --patch: #a78bfa;
+    --link: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --err: #f87171;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); line-height: 1.65;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+a { color: var(--link); }
+header {
+  padding: 24px 20px 16px; border-bottom: 1px solid var(--border);
+  max-width: 1060px; margin: 0 auto;
+}
+header h1 { margin: 0 0 6px; font-size: 24px; }
+.meta { margin: 0 0 4px; color: var(--muted); font-size: 13px; }
+.desc { max-width: 1060px; margin: 10px auto 0; padding: 0 20px; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
+.toolbar { max-width: 1060px; margin: 14px auto 0; padding: 0 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+#filter {
+  flex: 1 1 260px; max-width: 420px; padding: 7px 12px; font-size: 14px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--fg);
+}
+main { max-width: 1060px; margin: 0 auto; padding: 8px 20px 48px; }
+.group h2 {
+  margin: 34px 0 4px; font-size: 19px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
+}
+.group-desc { margin: 4px 0 10px; color: var(--muted); font-size: 13px; }
+.endpoint {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; margin: 12px 0;
+}
+.ep-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.badge {
+  display: inline-block; min-width: 62px; text-align: center; color: #fff;
+  font-size: 12px; font-weight: 700; border-radius: 6px; padding: 3px 8px; letter-spacing: .5px;
+}
+.m-get { background: var(--get); } .m-post { background: var(--post); }
+.m-put { background: var(--put); } .m-delete { background: var(--del); }
+.m-patch { background: var(--patch); }
+.path { font-size: 14px; font-weight: 600; word-break: break-all; }
+.chip {
+  font-size: 12px; border-radius: 999px; padding: 2px 10px;
+  background: var(--chip-bg); color: var(--muted); white-space: nowrap;
+}
+.chip.a-bearer { color: var(--ok); } .chip.a-session { color: var(--get); }
+.chip.a-allow { color: var(--patch, #7c3aed); } .chip.a-public { color: var(--muted); }
+.summary { font-size: 14px; font-weight: 600; }
+.desc, .endpoint .desc { font-size: 13px; color: var(--muted); white-space: pre-wrap; margin: 8px 0 0; }
+.endpoint h4 { margin: 14px 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 4px 0 8px; }
+th, td { border: 1px solid var(--border); padding: 5px 9px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; white-space: nowrap; }
+td code, .path { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+details { margin: 6px 0; }
+summary { cursor: pointer; font-size: 13px; color: var(--muted); user-select: none; }
+pre {
+  background: var(--pre-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; overflow-x: auto; font-size: 12.5px; line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.resp { border-left: 3px solid var(--border); padding: 2px 0 2px 12px; margin: 10px 0; }
+.resp .code { font-weight: 700; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+.resp.s-2xx { border-left-color: var(--ok); } .resp.s-2xx .code { color: var(--ok); }
+.resp.s-4xx { border-left-color: var(--warn); } .resp.s-4xx .code { color: var(--warn); }
+.resp.s-5xx { border-left-color: var(--err); } .resp.s-5xx .code { color: var(--err); }
+.resp-desc { margin: 4px 0; font-size: 13px; }
+footer { max-width: 1060px; margin: 0 auto; padding: 16px 20px 40px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+.legend { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.legend .badge { min-width: auto; padding: 1px 7px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CatMail API 文档</h1>
+  <p class="meta"><span id="api-version"></span> · 与 SPEC.md 同步维护 · 本页由内嵌 OpenAPI 规范渲染，共 <span id="op-count">…</span> 个端点</p>
+  <div class="toolbar">
+    <input id="filter" type="search" placeholder="过滤端点（路径 / 说明 / 分组）…" aria-label="过滤端点">
+    <span class="legend">
+      <span class="badge m-get">GET</span><span class="badge m-post">POST</span><span class="badge m-put">PUT</span><span class="badge m-delete">DELETE</span>
+      <a href="/docs/openapi.yaml">下载 openapi.yaml</a>
+    </span>
+  </div>
+</header>
+<p class="desc" id="api-desc"></p>
+<main id="app"></main>
+<footer>CatMail 内嵌 API 文档（B2） · 公开无鉴权，示例均为脱敏占位值 · 规范原文：<a href="/docs/openapi.yaml">/docs/openapi.yaml</a></footer>
+<script type="application/json" id="spec-data">{{.}}</script>
+<script>
+(function () {
+  'use strict';
+  var specNode = JSON.parse(document.getElementById('spec-data').textContent);
+
+  // 解引用 $ref（仅本规范内的一级引用，无递归 schema，无环）。
+  function deref(node) {
+    if (Array.isArray(node)) {
+      var arr = [];
+      for (var i = 0; i < node.length; i++) arr.push(deref(node[i]));
+      return arr;
+    }
+    if (node === null || typeof node !== 'object') return node;
+    if (typeof node.$ref === 'string') {
+      var cur = specNode;
+      var parts = node.$ref.split('/');
+      for (var j = 1; j < parts.length; j++) cur = cur[parts[j]];
+      return deref(cur);
+    }
+    var out = {};
+    for (var k in node) out[k] = deref(node[k]);
+    return out;
+  }
+  var spec = deref(specNode);
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // escRich 描述类文本：先 HTML 转义，再去除轻量 markdown 标记（**加粗** 与
+  // 反引号代码）——描述按纯文本渲染，标记符号不应原样露出。
+  function escRich(s) {
+    return esc(s).replace(/\*\*/g, '').replace(/`/g, '');
+  }
+
+  function typeLabel(s) {
+    if (!s || typeof s !== 'object') return '';
+    if (s.type === 'array') return typeLabel(s.items) + '[]';
+    if (s.type) return s.type;
+    if (s.oneOf || s.anyOf) return (s.oneOf || s.anyOf).map(typeLabel).join(' 或 ');
+    return '';
+  }
+
+  function paramsTable(params) {
+    if (!params || !params.length) return '';
+    var rows = params.map(function (p) {
+      var schema = p.schema || {};
+      return '<tr><td>' + esc(p.in || '') + '</td><td><code>' + esc(p.name) + '</code></td><td>' +
+        esc(typeLabel(schema)) + '</td><td>' + (p.required ? '是' : '否') + '</td><td>' +
+        escRich(p.description || '') + '</td></tr>';
+    }).join('');
+    return '<table><thead><tr><th>位置</th><th>名称</th><th>类型</th><th>必填</th><th>说明</th></tr></thead><tbody>' +
+      rows + '</tbody></table>';
+  }
+
+  function bodyBlock(reqBody) {
+    if (!reqBody) return '';
+    var json = (reqBody.content || {})['application/json'] || {};
+    var schema = json.schema || {};
+    var required = Array.isArray(schema.required) ? schema.required : [];
+    var html = '';
+    if (schema.properties) {
+      html += '<table><thead><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead><tbody>' +
+        Object.keys(schema.properties).map(function (name) {
+          var p = schema.properties[name] || {};
+          return '<tr><td><code>' + esc(name) + '</code></td><td>' + esc(typeLabel(p)) + '</td><td>' +
+            (required.indexOf(name) >= 0 ? '是' : '否') + '</td><td>' + escRich(p.description || '') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+    var example = json.example;
+    if (example !== undefined) {
+      var text = typeof example === 'string' ? example : JSON.stringify(example, null, 2);
+      html += '<details><summary>请求示例</summary><pre>' + esc(text) + '</pre></details>';
+    }
+    if (!html) return '';
+    return '<h4>请求体' + (reqBody.required ? '（必填）' : '（可选）') + '</h4>' + html;
+  }
+
+  function exampleOf(resp) {
+    var content = (resp && resp.content) || {};
+    var keys = Object.keys(content);
+    for (var i = 0; i < keys.length; i++) {
+      var c = content[keys[i]];
+      if (c && c.example !== undefined) {
+        return typeof c.example === 'string' ? c.example : JSON.stringify(c.example, null, 2);
+      }
+    }
+    return null;
+  }
+
+  function responsesBlock(responses) {
+    var codes = Object.keys(responses || {}).filter(function (k) {
+      return /^[0-9]+$/.test(k);
+    });
+    if (!codes.length) return '';
+    codes.sort();
+    var html = '<h4>响应</h4>';
+    html += codes.map(function (code) {
+      var resp = responses[code] || {};
+      var cls = code >= 500 ? 's-5xx' : (code >= 400 ? 's-4xx' : 's-2xx');
+      var inner = '<p class="resp-desc">' + escRich(resp.description || '') + '</p>';
+      var ex = exampleOf(resp);
+      if (ex !== null) inner += '<details><summary>响应示例</summary><pre>' + esc(ex) + '</pre></details>';
+      return '<div class="resp ' + cls + '"><span class="code">' + esc(code) + '</span>' + inner + '</div>';
+    }).join('');
+    return html;
+  }
+
+  function authClass(label) {
+    if (label.indexOf('Bearer') === 0) return 'a-bearer';
+    if (label.indexOf('会话') === 0) return 'a-session';
+    if (label.indexOf('IP') === 0) return 'a-allow';
+    return 'a-public';
+  }
+
+  var METHODS = ['get', 'post', 'put', 'delete', 'patch'];
+
+  function endpointCard(path, method, op) {
+    var auth = op['x-auth'] || '公开';
+    var search = (path + ' ' + (op.summary || '') + ' ' + (op.description || '') + ' ' + (op.tags || []).join(' ')).toLowerCase();
+    var html = '<section class="endpoint" data-search="' + esc(search) + '">';
+    html += '<div class="ep-head"><span class="badge m-' + method + '">' + method.toUpperCase() + '</span>';
+    html += '<code class="path">' + esc(path) + '</code>';
+    html += '<span class="chip ' + authClass(auth) + '">' + esc(auth) + '</span>';
+    html += '<span class="summary">' + esc(op.summary || '') + '</span></div>';
+    if (op.description) html += '<div class="desc">' + escRich(op.description) + '</div>';
+    var pt = paramsTable(op.parameters);
+    if (pt) html += '<h4>参数</h4>' + pt;
+    html += bodyBlock(op.requestBody);
+    html += responsesBlock(op.responses);
+    html += '</section>';
+    return html;
+  }
+
+  function groupHTML(name, desc, ops) {
+    var cards = ops.map(function (e) {
+      return endpointCard(e.path, e.method, e.op);
+    }).join('');
+    return '<div class="group" data-group="' + esc(name) + '"><h2>' + esc(name) + '</h2>' +
+      (desc ? '<p class="group-desc">' + escRich(desc) + '</p>' : '') + cards + '</div>';
+  }
+
+  function render() {
+    var info = spec.info || {};
+    document.getElementById('api-version').textContent = 'v' + (info.version || '');
+    document.getElementById('api-desc').innerHTML = escRich(info.description || '').replace(/\n/g, '<br>');
+
+    var groups = {};
+    var count = 0;
+    Object.keys(spec.paths || {}).forEach(function (path) {
+      var item = spec.paths[path] || {};
+      METHODS.forEach(function (method) {
+        var op = item[method];
+        if (!op) return;
+        var tag = (op.tags && op.tags[0]) || '其他';
+        if (!groups[tag]) groups[tag] = [];
+        groups[tag].push({ path: path, method: method, op: op });
+        count++;
+      });
+    });
+    document.getElementById('op-count').textContent = String(count);
+
+    var html = '';
+    var seen = {};
+    (spec.tags || []).forEach(function (t) {
+      if (!groups[t.name]) return;
+      seen[t.name] = true;
+      html += groupHTML(t.name, t.description || '', groups[t.name]);
+    });
+    Object.keys(groups).forEach(function (name) {
+      if (seen[name]) return;
+      html += groupHTML(name, '', groups[name]);
+    });
+    document.getElementById('app').innerHTML = html;
+
+    var input = document.getElementById('filter');
+    input.addEventListener('input', function () {
+      var q = input.value.trim().toLowerCase();
+      var sections = document.querySelectorAll('.group');
+      for (var i = 0; i < sections.length; i++) {
+        var cards = sections[i].querySelectorAll('.endpoint');
+        var visible = 0;
+        for (var j = 0; j < cards.length; j++) {
+          var show = !q || cards[j].getAttribute('data-search').indexOf(q) >= 0;
+          cards[j].style.display = show ? '' : 'none';
+          if (show) visible++;
+        }
+        sections[i].style.display = visible ? '' : 'none';
+      }
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

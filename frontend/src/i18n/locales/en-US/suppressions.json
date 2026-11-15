@@ -1,0 +1,71 @@
+{
+  "page": {
+    "title": "Suppressions",
+    "description": "Recipients on this list are rejected at every send entry point (hard bounce and complaint events are added automatically per system settings, and addresses can also be added manually)."
+  },
+  "actions": {
+    "add": "Add Manually",
+    "addSubmit": "Add",
+    "adding": "Adding…",
+    "remove": "Remove",
+    "removing": "Removing…",
+    "removeAria": "Remove suppression for {{email}}"
+  },
+  "filter": {
+    "reasonAria": "Filter by reason",
+    "allReasons": "All reasons",
+    "channelAria": "Filter by channel",
+    "allChannels": "All channels",
+    "emailAria": "Filter by email",
+    "emailPlaceholder": "Email address…"
+  },
+  "reason": {
+    "bounce": "Bounce",
+    "complaint": "Complaint",
+    "manual": "Manual"
+  },
+  "fields": {
+    "addedAt": "Added",
+    "email": "Email",
+    "reason": "Reason",
+    "channel": "Channel"
+  },
+  "empty": {
+    "filteredTitle": "No matching suppressions",
+    "filteredDesc": "Try different filters.",
+    "clearFilters": "Clear Filters",
+    "noRecordsTitle": "No suppressions yet",
+    "noRecordsDesc": "Hard bounce and complaint events are added here automatically per system settings; you can also block addresses you no longer want to send to."
+  },
+  "pagination": {
+    "range": "{{start}}–{{end}} of {{total}} · Page {{page}} of {{totalPages}}",
+    "perPage": "Per page",
+    "perPageAria": "Rows per page",
+    "jumpTo": "Go to page",
+    "jumpAria": "Go to page (press Enter)",
+    "pagePlaceholder": "Page",
+    "pageSuffix": " ",
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "addModal": {
+    "title": "Add Suppression",
+    "emailLabel": "Recipient email",
+    "noteLabel": "Note (optional)",
+    "notePlaceholder": "e.g. customer deactivated / complaint risk",
+    "noteAria": "Note",
+    "hint": "Once added, the address is rejected immediately at every send entry point (400 recipient_suppressed); if a hard bounce or complaint event arrives after removal, it is added back automatically."
+  },
+  "removeModal": {
+    "title": "Remove Suppression",
+    "confirmPrefix": "Remove sending suppression for",
+    "confirmSuffix": "?",
+    "note": "The address can receive mail again immediately after removal; if a hard bounce or complaint event arrives later, it is added back automatically per system settings."
+  },
+  "toast": {
+    "added": "Suppression added: {{email}}",
+    "addFailed": "Failed to add",
+    "removed": "Suppression removed: {{email}}",
+    "removeFailed": "Failed to remove"
+  }
+}

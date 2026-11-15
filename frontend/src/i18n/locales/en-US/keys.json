@@ -1,0 +1,95 @@
+{
+  "page": {
+    "description": "Manage credentials for /v1/send; the plaintext key is shown only once, at creation."
+  },
+  "actions": {
+    "createKey": "New Key",
+    "createSubmit": "Create Key",
+    "sendTest": "Send Test",
+    "rotate": "Rotate Secret",
+    "copied": "Copied",
+    "copyKey": "Copy Key",
+    "savedClose": "I've Saved It — Close",
+    "backToView": "Back to Review",
+    "confirmCloseNoShow": "Close and Don't Show Again",
+    "confirmDelete": "Delete"
+  },
+  "table": {
+    "label": "API key list",
+    "quota": "Quota",
+    "totalSent": "Total Sent",
+    "lastUsed": "Last Used",
+    "neverUsed": "Never used",
+    "perDay_one": "{{count}}/day",
+    "perDay_other": "{{count}}/day",
+    "unlimited": "Unlimited",
+    "badgeActive": "Active",
+    "badgeInactive": "Disabled",
+    "passwordResetBadge": "Disabled after password reset — re-enable manually",
+    "passwordResetTitle": "This key was disabled because its account password was reset by an admin; re-enable it manually to restore."
+  },
+  "empty": {
+    "title": "No API keys yet",
+    "description": "Create a key, then use it to call /v1/send to send email."
+  },
+  "form": {
+    "limitPlaceholder": "0 = unlimited",
+    "nameRequired": "Please enter a key name",
+    "nameTooLong": "Name cannot exceed 64 characters",
+    "limitInvalidCreate": "Daily quota / rate limit must be non-negative integers (leave empty or 0 = unlimited)",
+    "limitInvalidEdit": "Daily quota / rate limit must be non-negative integers (0 = unlimited)",
+    "nameHint": "Used to identify the purpose, e.g. \"CI release script\"",
+    "dailyQuotaLabel": "Daily Quota",
+    "dailyQuotaHint": "Max successful sends per day",
+    "rateLabel": "Rate / sec",
+    "rateHint": "Excess requests are queued or rejected with 429",
+    "createNote": "The full plaintext key is shown only once after creation — prepare a place to save it now."
+  },
+  "create": {
+    "title": "New API Key"
+  },
+  "reveal": {
+    "title": "Key Created",
+    "bodyPrefix": "Key",
+    "bodySuffix": "was created successfully. The full plaintext is below:",
+    "warning": "Save it now: the full key is shown only this once. Once closed it cannot be viewed again — you will have to delete the key and create a new one.",
+    "closeWarning": "After closing, the plaintext key will no longer be shown. Make sure you have saved it safely."
+  },
+  "delete": {
+    "title": "Delete API Key",
+    "confirmPrefix": "Are you sure you want to delete key",
+    "maskOpen": " (",
+    "confirmSuffix": ")?",
+    "note": "This cannot be undone. Programs calling /v1/send with this key will receive 401 Unauthorized."
+  },
+  "nameQuoted": "\"{{name}}\"",
+  "edit": {
+    "title": "Edit Key — {{name}}",
+    "callerLimits": "Caller Limits",
+    "testHint": "Send test uses the saved URL",
+    "webhookDesc": "Once configured, accepted/terminal-failure results of send calls made with this key are POSTed as JSON to the address below, so unattended pipelines can archive them (the synchronous API response already includes the result).",
+    "urlRequired": "Webhook URL must start with http:// or https://",
+    "webhookUrlHint": "Leave empty to disable push; only http(s):// addresses are supported",
+    "secretTitle": "Signing Secret",
+    "secretDesc": "Receipt requests carry the X-CatMail-Signature header signed with this secret (HMAC-SHA256, ±5 min clock skew); update the receiver's verification secret after rotation.",
+    "secretRotateConfirm": "Rotate the signing secret for this key? The receiver must update its verification secret afterwards.",
+    "eventsTitle": "Receipt Events",
+    "eventsWarning": "URL is set but no event is selected: nothing will be pushed after saving.",
+    "testPushLabel": "Test push: ",
+    "testFailedWithError": "Failed: {{error}}"
+  },
+  "events": {
+    "sendAccepted": "Accepted",
+    "sendAcceptedDesc": "Pushed after the platform accepts a message (includes provider_message_id and elapsed time)",
+    "sendFailed": "Terminal failure",
+    "sendFailedDesc": "Pushed after 429 quota/rate limits or when all candidate channels are exhausted (400 parameter errors are not pushed)"
+  },
+  "toast": {
+    "deleted": "Key \"{{name}}\" deleted",
+    "configSaved": "Key \"{{name}}\" settings saved",
+    "secretRotated": "Signing secret rotated — the receiver must update its verification secret",
+    "copyFailedManual": "Copy failed — select and copy manually",
+    "enabled": "Key enabled",
+    "disabled": "Key disabled"
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "page": {
+    "title": "账号管理",
+    "description": "管理后台登录账号；登录用户均为管理员角色。"
+  },
+  "actions": {
+    "create": "新建账号",
+    "createSubmit": "创建账号",
+    "resetPassword": "重置密码",
+    "confirmDelete": "确认删除"
+  },
+  "fields": {
+    "username": "用户名",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "newPassword": "新密码",
+    "confirmNewPassword": "确认新密码"
+  },
+  "placeholders": {
+    "confirmPassword": "再次输入密码",
+    "confirmNewPassword": "再次输入新密码"
+  },
+  "hints": {
+    "usernameLength": "2-32 个字符",
+    "passwordMinLength": "至少 6 位"
+  },
+  "errors": {
+    "usernameRequired": "请输入用户名",
+    "usernameMinLength": "用户名至少 2 个字符",
+    "usernameMaxLength": "用户名不能超过 32 个字符",
+    "passwordMinLength": "密码至少 6 位",
+    "passwordMaxLength": "密码最长 72 个字符",
+    "passwordMismatch": "两次输入的密码不一致",
+    "newPasswordMinLength": "新密码至少 6 位"
+  },
+  "badge": {
+    "self": "当前账号"
+  },
+  "empty": {
+    "title": "还没有账号",
+    "description": "新建管理员账号后即可登录后台。"
+  },
+  "list": {
+    "label": "账号列表"
+  },
+  "resetModal": {
+    "title": "重置密码 · {{name}}",
+    "note": "重置后该用户的所有会话将失效，你的登录不受影响。",
+    "apiKeysWarning": "该账号创建的全部 API Key 也会被停用（需在「API Keys」页手动启用）。"
+  },
+  "deleteModal": {
+    "title": "删除账号",
+    "confirmPrefix": "确定删除账号",
+    "quotedName": "「{{name}}」",
+    "confirmSuffix": " 吗？",
+    "note": "删除后该账号将无法登录；系统至少需要保留一个账号。",
+    "cannotDeleteSelf": "不能删除当前登录的账号"
+  },
+  "toast": {
+    "created": "账号「{{name}}」已创建",
+    "passwordReset": "已重置「{{name}}」的密码；其会话与 API Key 已联动吊销",
+    "deleted": "账号「{{name}}」已删除"
+  }
+}

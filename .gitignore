@@ -1,0 +1,33 @@
+# ---- 运行时数据 ----
+# SQLite 数据目录（首启自动创建，含业务数据，不入库）
+backend/data/
+
+# ---- 构建产物 ----
+# 前端构建输出（go:embed 输入；克隆后需先在 frontend 执行 npm run build，见 README「快速开始」）
+backend/internal/web/dist/
+
+# go build 产物（注意：不能用裸名 catmail，否则会误伤 backend/cmd/catmail/ 源码目录）
+backend/catmail
+backend/catmail.exe
+/catmail
+/catmail.exe
+*.test
+# go test -coverprofile 产物（CI 同名，本地复跑会生成）
+backend/coverage.txt
+tmp/
+
+# ---- 前端 ----
+node_modules/
+frontend/.vite/
+
+# ---- 系统 ----
+.DS_Store
+
+# ---- Docker compose 数据卷（仓库根 ./data） ----
+/data/
+
+# ---- Playwright E2E 运行产物（含会话 cookie，勿入库） ----
+frontend/e2e/.auth/
+frontend/e2e/.tmp/
+frontend/test-results/
+frontend/playwright-report/

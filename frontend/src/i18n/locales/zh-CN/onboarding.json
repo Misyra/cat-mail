@@ -1,0 +1,17 @@
+{
+  "title": "开始使用猫邮",
+  "intro": "完成以下三步即可正式投入使用，可按任意顺序进行。",
+  "skip": "跳过导览",
+  "progressAria_other": "已完成 {{count}} 步，共 {{total}} 步",
+  "step": {
+    "passwordTitle": "修改管理员密码",
+    "passwordDesc": "当前仍在使用初始弱口令，建议尽快修改。",
+    "channelTitle": "创建你的第一个渠道",
+    "channelDesc": "首启自带 1 条 Mock 示例渠道，示例渠道不计入。",
+    "keyTitle": "创建 API Key",
+    "keyDesc": "供调用方通过 API 发信时鉴权使用。",
+    "done": "已完成",
+    "pendingAria": "待完成",
+    "go": "去完成"
+  }
+}

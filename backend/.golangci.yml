@@ -1,0 +1,52 @@
+# golangci-lint v2 配置（gofmt/go vet 已由 CI 单独跑，这里补静态分析的增量面）。
+# 原则：只留高信噪比、误报少、不需侵入式改动就能过的检查；噪音规则宁可排除也不
+# 为过检重构代码。调整本文件后先跑 `golangci-lint config verify` 校验结构。
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  # 默认全关、显式启用：golangci-lint 升级新增默认 linter 时不会突然红一片
+  default: none
+  enable:
+    - errcheck # 被忽略的 error 返回值（defer Close 等惯用忽略走 exclusions）
+    - govet # go vet 的超集（含 copylocks、shadow 等额外分析）
+    - staticcheck # SA 可疑代码 + S 简化建议；ST 风格/QF quickfix 见下方 settings
+    - unused # 未使用的函数/变量/类型/字段
+    - ineffassign # 无效赋值
+    - misspell # 拼写错误
+
+  settings:
+    errcheck:
+      # handler 里写响应体的错误无从处理（客户端断开是常态），惯例忽略
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
+    staticcheck:
+      checks:
+        - all
+        # 与 golangci-lint 官方默认一致：ST 是命名/包注释类风格检查，对既有代码侵入大
+        - -ST1000 # 缺包注释
+        - -ST1003 # 命名约定（如 URL/ID 大小写）
+        - -ST1016 # receiver 命名一致性
+        - -ST1020 # 导出函数注释格式
+        - -ST1021 # 导出类型注释格式
+        - -ST1022 # 导出变量注释格式
+        - -ST1005 # 错误串首字母大写——对 "Mailgun 渠道…" 这类品牌词开头必误报
+        # QF 是 IDE quickfix 建议（De Morgan、tagged switch、去掉嵌入字段选择器），
+        # 纯代码风格改写，无正确性收益，全关
+        - -QF*
+
+  exclusions:
+    # lax：忽略 go:generate 等生成的文件（本仓库暂无，防患于未然）
+    generated: lax
+    presets:
+      # 恢复 v1 时代的默认噪音过滤（EXC0001）：defer Close/Flush、fmt.Print*、
+      # os.Remove/Setenv 等错误无处理动作可执行的惯用忽略。本仓库 12 处
+      # errcheck 命中全部属于这一类（resp.Body.Close、rows.Close、诊断输出）
+      - std-error-handling
+    rules:
+      # 测试里忽略 error（假服务器 Close、打印辅助输出等）是惯用法
+      - path: _test\.go
+        linters:
+          - errcheck

@@ -1,0 +1,31 @@
+{
+  "title": "Notifications",
+  "listAria": "Notification list",
+  "markAllRead": "Mark all read",
+  "empty": "No notifications",
+  "unreadAria_one": "Notifications ({{count}} unread)",
+  "unreadAria_other": "Notifications ({{count}} unread)",
+  "unreadTitle_one": "{{count}} unread notification",
+  "unreadTitle_other": "{{count}} unread notifications",
+  "unreadCount_one": "{{count}} unread",
+  "unreadCount_other": "{{count}} unread",
+  "level": {
+    "error": "Error",
+    "warn": "Warning",
+    "info": "Info"
+  },
+  "event": {
+    "channelDisabledLabel": "Channel auto-disabled",
+    "channelDisabledDesc": "Channel disabled automatically after consecutive failures hit the threshold",
+    "channelCooldownLabel": "Channel cooling down",
+    "channelCooldownDesc": "Platform rate limit triggered; channel paused from rotation",
+    "channelRecoveredLabel": "Channel recovered",
+    "channelRecoveredDesc": "Cooldown ended; channel back in rotation",
+    "sendFailedLabel": "Final send failure",
+    "sendFailedDesc": "All channels tried but the message still failed to send",
+    "updateAvailableLabel": "New version available",
+    "updateAvailableDesc": "Checks for updates at startup and reminds you when a new version is found",
+    "bounceRateExceededLabel": "Bounce rate over threshold",
+    "bounceRateExceededDesc": "Alerts when a channel's 7-day bounce rate exceeds the configured threshold"
+  }
+}

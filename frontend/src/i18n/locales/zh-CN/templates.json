@@ -1,0 +1,75 @@
+{
+  "page": {
+    "title": "邮件模板",
+    "description": "可复用的邮件内容骨架；发送时经 template_id 引用，{{sample}} 占位符按变量渲染（HTML 变量自动转义）。",
+    "create": "新建模板",
+    "emptyTitle": "还没有邮件模板",
+    "emptyDescription": "创建模板后在发送 API 里用 template_id + variables 引用，正文内容集中维护。"
+  },
+  "actions": {
+    "preview": "预览"
+  },
+  "table": {
+    "label": "模板列表",
+    "subject": "主题",
+    "variables": "变量",
+    "updatedAt": "更新时间"
+  },
+  "form": {
+    "editTitle": "编辑模板",
+    "createTitle": "新建模板",
+    "submitCreate": "创建模板",
+    "untitled": "未命名模板",
+    "name": "模板名称",
+    "nameHint": "唯一，≤128 个字符",
+    "namePlaceholder": "欢迎邮件",
+    "nameRequired": "请输入模板名称",
+    "nameTooLong": "模板名称不能超过 128 个字符",
+    "subject": "主题（subject）",
+    "subjectHint": "支持 {{sample}} 占位符，≤998 字符",
+    "subjectRequired": "请输入模板主题（可含 {{sample}} 占位符）",
+    "subjectTooLong": "模板主题不能超过 998 个字符",
+    "htmlBody": "HTML 正文",
+    "htmlBodyHint": "HTML 语境变量自动转义；与纯文本正文至少填一个",
+    "textBody": "纯文本正文",
+    "textBodyHint": "纯文本语境变量原样替换",
+    "bodyRequired": "HTML 正文与纯文本正文至少填写一个",
+    "varsLabel": "变量提示",
+    "varsLabelExtra": "（由内容占位符实时提取）",
+    "varsListLabel": "变量清单（可选）",
+    "varsListHint": "逗号/换行分隔；留空时保存将按内容自动提取，填写则以显式清单为准（可包含尚未使用的变量）",
+    "varsListTooMany": "变量清单不能超过 100 个"
+  },
+  "vars": {
+    "exampleName": "变量名",
+    "exampleShort": "变量",
+    "emptyHint": "暂无占位符；在主题/正文中用 {{sample}} 引用变量。",
+    "chipTitle": "发送时经 variables 提供该变量"
+  },
+  "preview": {
+    "title": "预览 · {{name}}",
+    "sampleVarsLabel": "样本变量（JSON 对象）",
+    "sampleVarsHint": "发送时经 variables 字段提供；未提供的变量占位符渲染为空",
+    "sampleVarsInvalid": "不是合法的 JSON 对象",
+    "sampleVarsPlaceholder": "{\"name\": \"张三\", \"order_no\": \"SO-20260101-001\"}",
+    "renderedSubjectLabel": "渲染后主题：",
+    "emptySubject": "（空）",
+    "desktopView": "桌面视图",
+    "desktopIframeTitle": "桌面预览",
+    "mobileView": "移动视图（375px）",
+    "mobileIframeTitle": "移动端预览"
+  },
+  "delete": {
+    "title": "删除模板",
+    "confirm": "确认删除",
+    "confirmPrefix": "确定删除模板",
+    "nameWrapped": "「{{name}}」",
+    "confirmSuffix": "吗？",
+    "warning": "引用该模板的历史发送日志保留模板 ID 供追溯；正在发送中的请求不受影响。"
+  },
+  "toast": {
+    "created": "模板「{{name}}」已创建",
+    "saved": "模板「{{name}}」已保存",
+    "deleted": "模板「{{name}}」已删除"
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "page": {
+    "title": "域名治理",
+    "description": "从各渠道 allowed_domains 聚合发件域名，按平台查看域名验证记录要求（纯展示，不做实时 DNS 检测）。",
+    "descriptionFull": "从各渠道 allowed_domains 聚合发件域名，按平台查看域名验证记录要求（纯展示，不做实时 DNS 检测；记录值以平台控制台为准）。",
+    "unlimitedNotice_other": "以下 {{count}} 个渠道未配置 allowed_domains（不限制发件域名），不参与矩阵：",
+    "domainCount_other": "{{count}} 个域名",
+    "channelCount_other": "{{count}} 个渠道"
+  },
+  "empty": {
+    "title": "还没有受限发件域名",
+    "description": "在渠道上配置 allowed_domains 后，域名会自动汇总到这里。",
+    "action": "前往渠道管理"
+  },
+  "copy": {
+    "buttonAria": "复制{{label}}",
+    "successToast": "{{label}}已复制到剪贴板",
+    "failedHint": "复制失败，请手动选中复制",
+    "guideHeader": "【{{label}}】{{summary}}",
+    "recordLine": "{{kind}}  {{host}}  →  {{value}}  （{{requirement}}；{{desc}}）"
+  },
+  "guide": {
+    "copyTitle": "{{name}}指引",
+    "recordsTitle": "{{name}}域名验证记录"
+  },
+  "kind": {
+    "SPF": "SPF",
+    "DKIM": "DKIM",
+    "DMARC": "DMARC",
+    "MX": "MX",
+    "senderVerify": "发件人验证"
+  },
+  "term": {
+    "required": "必须",
+    "recommended": "推荐"
+  },
+  "table": {
+    "kind": "记录类型",
+    "host": "主机记录",
+    "value": "记录值",
+    "necessity": "必要性"
+  },
+  "shared": {
+    "rootHost": "@",
+    "selectorHost": "<选择器>._domainkey",
+    "dmarcHost": "_dmarc",
+    "k1Host": "k1._domainkey",
+    "dmarcValue": "v=DMARC1; p=none;",
+    "dkimPublicKey": "p=<控制台生成的公钥>",
+    "consoleGeneratedValue": "（控制台生成）",
+    "verifiedValue": "验证通过",
+    "spfConsoleInclude": "v=spf1 include:<控制台提供的 include 域> ~all",
+    "spfMergeDesc": "TXT 记录，include 值以控制台为准；已有 SPF 时合并为一条。",
+    "dmarcDescShort": "推荐：观察期后再收紧策略。"
+  },
+  "generic": {
+    "label": "通用指引",
+    "summary": "该渠道未做平台级域名绑定：能否以某域名发信取决于上游 SMTP 服务器自身的策略与验证要求。",
+    "spfValue": "v=spf1 include:<上游服务商域> ~all",
+    "spfDesc": "若上游 SMTP 服务商要求 SPF，按其提供的 include 值配置；自建服务器可跳过。",
+    "dkimValue": "（控制台生成的公钥）",
+    "dkimDesc": "上游服务商如提供 DKIM，按控制台生成的选择器与公钥配置。",
+    "dmarcDesc": "推荐：为自有域名添加 DMARC 策略观察投递情况，再逐步收紧 p=quarantine/reject。",
+    "senderHost": "渠道配置",
+    "senderValue": "—",
+    "senderDesc": "确认渠道的 from_email/凭据在上游服务器已完成验证或授权（allowed_domains 需与上游策略一致）。",
+    "consoleHint": "具体记录值以你的上游 SMTP 服务商控制台为准。"
+  },
+  "resend": {
+    "label": "Resend",
+    "summary": "发件域名须先在 Resend 控制台添加并完成 DNS 验证（DKIM + SPF），未验证域名不可发信。",
+    "returnPathHost": "send",
+    "spfValue": "v=spf1 include:amazonses.com ~all",
+    "spfDesc": "TXT 记录，配置在 Return-Path 子域（默认 send.example.com）上，授权 Resend（AWS SES 底层）代发。",
+    "mxValue": "10 feedback-smtp.us-east-1.amazonses.com",
+    "mxDesc": "同 Return-Path 子域，接收退信反馈；主机名随控制台选择的区域变化，以控制台为准。",
+    "dkimHost": "resend._domainkey",
+    "dkimValue": "p=<控制台生成的长公钥>",
+    "dkimDesc": "TXT 记录，公钥由控制台按域名生成，逐字复制（勿经代理/CDN 改写）。",
+    "dmarcDesc": "推荐：域名验证通过后再添加 DMARC，先观察投递再逐步收紧策略。",
+    "consoleHint": "控制台 → Domains → 添加域名后复制 Records 表格生成的值（每域名专属，以控制台为准）。"
+  },
+  "mailgun": {
+    "label": "Mailgun",
+    "summary": "发件域名须在 Mailgun 控制台添加并完成 DNS 验证（SPF/DKIM/MX），建议用 mail-from 子域承载。",
+    "mailFromHost": "mg（mail-from 子域）",
+    "spfValue": "v=spf1 include:mailgun.org ~all",
+    "spfDesc": "TXT 记录；EU 区域域名为 include:eu.mailgun.org，以控制台为准。",
+    "mxValue": "10 mxa.mailgun.org / 10 mxb.mailgun.org",
+    "mxDesc": "两条 MX 记录（优先级 10），接收上游反馈。",
+    "dkimDesc": "TXT 记录（新控制台亦提供 CNAME 形态 k1._domainkey → dkim.mailgun.org），公钥按域名生成。",
+    "consoleHint": "控制台 → Sending → Domain settings → DNS records（每域名专属，以控制台为准）。"
+  },
+  "brevo": {
+    "label": "Brevo",
+    "summary": "发件域名须完成「域名认证」（DKIM 两条 CNAME + 可选 DMARC），发件人地址需先通过验证邮件。",
+    "dkimHost": "brevo1._domainkey",
+    "dkimValue": "CNAME → brevo1._domainkey.sendinblue.com",
+    "dkimDesc": "两条 CNAME（另有 brevo2._domainkey），目标主机随账号/数据中心生成，以控制台为准。",
+    "senderHost": "Senders & IP",
+    "senderValue": "验证邮件点击确认",
+    "senderDesc": "发件人地址须在控制台创建并通过验证邮件；渠道 from_email 与其一致。",
+    "dmarcDesc": "推荐：Brevo 亦支持在控制台配置「Branded link」提升投递（额外 CNAME）。",
+    "consoleHint": "控制台 → Senders, Domains & Dedicated IPs → 认证域名（记录值随账号生成，以控制台为准）。"
+  },
+  "smtp2go": {
+    "label": "SMTP2GO",
+    "summary": "建议完成 Sender Domain 验证（SPF + DKIM），未验证也可经 SMTP 发信但投递与信誉受限。",
+    "spfValue": "v=spf1 include:smtp2go.net ~all",
+    "spfDesc": "TXT 记录；若已有 SPF 需合并为一条（多条 SPF 记录会导致校验失败），以控制台为准。",
+    "dkimValue": "CNAME → <选择器>.dkim.smtp2go.net",
+    "dkimDesc": "CNAME 记录，选择器与目标主机由控制台按域名生成。",
+    "senderHost": "Sender Domains",
+    "senderDesc": "Sender Domain 状态变为 Verified 后，该域名才计入可信发信。",
+    "consoleHint": "控制台 → Settings → Sender Domains → 添加域名复制 DNS 值（以控制台为准）。"
+  },
+  "mailjet": {
+    "label": "Mailjet",
+    "summary": "SPF + DKIM 域名认证为必需（逐域名在控制台添加），发件地址亦需通过验证。",
+    "spfValue": "v=spf1 include:spf.mailjet.com ~all",
+    "spfDesc": "TXT 记录；官方模板为宽容策略（?all），已有 SPF 时合并 include 即可，以控制台为准。",
+    "dkimDesc": "TXT 记录（部分账号为 CNAME 形态），公钥按域名生成，逐字复制。",
+    "senderHost": "Sender addresses",
+    "senderValue": "验证邮件确认",
+    "senderDesc": "发件地址须在控制台添加并完成验证；渠道 from_email 与其一致。",
+    "consoleHint": "控制台 → Account Settings → Manage sender domains & addresses（值随账号生成，以控制台为准）。"
+  },
+  "elasticemail": {
+    "label": "Elastic Email",
+    "summary": "发件域名须完成 SPF/DKIM 认证并验证发件人；记录形态随控制台版本变化。",
+    "dkimDesc": "TXT/CNAME 记录，选择器与公钥由控制台按域名生成。",
+    "senderHost": "Senders",
+    "senderValue": "验证确认",
+    "senderDesc": "发件地址须通过控制台验证后才能发信。",
+    "consoleHint": "控制台 → Sending → DNS / Sender 设置（该平台记录形态调整较频繁，务必以控制台为准）。"
+  },
+  "mailtrap": {
+    "label": "Mailtrap",
+    "summary": "发件域名须完成域名认证（SPF/DKIM/DMARC 按引导逐条添加）后才能稳定投递。",
+    "dkimDesc": "TXT 记录，公钥按域名生成。",
+    "dmarcDesc": "推荐：Mailtrap 引导中亦包含 DMARC 建议，观察期后再收紧。",
+    "senderHost": "Sending Domains",
+    "senderDesc": "域名验证状态变为 Verified 后计入可信发信。",
+    "consoleHint": "控制台 → Email Sending → Sending Domains → 复制 DNS 记录（以控制台为准）。"
+  },
+  "aliyun": {
+    "label": "阿里云邮件推送",
+    "summary": "发信域名须在控制台完成三项 DNS 验证（SPF/MX/DKIM）并创建发信地址。",
+    "spfValue": "v=spf1 include:spf.dm.aliyun.com -all",
+    "spfDesc": "TXT 记录，授权阿里云邮件推送代发；已有 SPF 时合并 include，以控制台为准。",
+    "mxValue": "mx1.dm.aliyun.com（优先级 10）",
+    "mxDesc": "控制台会给出 MX 主机与优先级（含 mx2 备用），逐条照抄。",
+    "dkimDesc": "TXT/CNAME 记录，选择器与公钥由控制台按发信域名生成。",
+    "senderHost": "发信地址",
+    "senderValue": "控制台创建并验证",
+    "senderDesc": "发信地址（如 notify@example.com）须在控制台创建，渠道 from_email 与其一致。",
+    "consoleHint": "控制台 → 邮件推送 → 发信域名 → 配置 DNS 验证（值随域名生成，以控制台为准）。"
+  },
+  "smtp": {
+    "label": "通用 SMTP",
+    "summary": "通用 SMTP 渠道无平台级域名绑定：能否以某域名发信由上游服务器决定（含其 SPF/DKIM 要求）。"
+  }
+}

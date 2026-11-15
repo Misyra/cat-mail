@@ -1,0 +1,36 @@
+# Dependabot：三条独立流水线，均为 weekly。
+# monorepo 按子目录拆 ecosystem（backend=gomod，frontend=npm）；github-actions 管
+# .github/workflows 里用到的 action（checkout/setup-go/setup-node）版本。
+version: 2
+
+updates:
+  # 后端 Go 依赖：minor/patch 合并为一个 PR 降噪（升级风险低、数量多），
+  # major 单独提出——大版本升级（如框架重写）值得独立评审。
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      go-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # 前端 npm 依赖：生产依赖与开发依赖分组，按风险区分评审——
+  # 运行时依赖（react/i18next/recharts 等）进构建产物、影响线上行为；
+  # 开发依赖（vite/playwright/typescript 等）只影响工具链，坏了 CI 就会发现。
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      npm-production:
+        dependency-type: production
+      npm-development:
+        dependency-type: development
+
+  # GitHub Actions 版本；directory: / 为官方要求写法（workflow 全在 .github/workflows 下）。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

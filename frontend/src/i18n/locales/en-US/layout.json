@@ -1,0 +1,53 @@
+{
+  "brand": {
+    "name": "CatMail",
+    "subtitle": "Mail Failover Gateway"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "channels": "Channels",
+    "domains": "Domains",
+    "templates": "Templates",
+    "logs": "Logs",
+    "events": "Delivery Events",
+    "suppressions": "Suppressions",
+    "apiKeys": "API Keys",
+    "users": "Users",
+    "audit": "Audit Log",
+    "settings": "Settings"
+  },
+  "sidebar": {
+    "currentUser": "Current user: {{name}}",
+    "expand": "Expand Sidebar",
+    "collapse": "Collapse Sidebar",
+    "logout": "Sign Out",
+    "navMenu": "Navigation Menu"
+  },
+  "header": {
+    "skipToContent": "Skip to main content",
+    "openMenu": "Open navigation menu",
+    "searchTitle": "Search pages and commands (⌘K / Ctrl+K)",
+    "openPalette": "Open command palette"
+  },
+  "theme": {
+    "toggleAria": "UI theme: {{current}}, click to switch",
+    "toggleTitle": "UI theme: {{current}} (click to switch)"
+  },
+  "palette": {
+    "label": "Command Palette",
+    "navGroup": "Navigation",
+    "searchPlaceholder": "Search pages or commands…",
+    "searchAria": "Search pages or commands",
+    "noResults": "No matching commands",
+    "switchTheme": "Switch Theme (current: {{current}})",
+    "themeKeywords": "theme dark light mode appearance",
+    "logoutKeywords": "logout sign out log out",
+    "selectHint": "↑↓ to select",
+    "runHint": "↵ to run",
+    "closeHint": "Esc to close"
+  },
+  "toast": {
+    "loggedOut": "Signed out",
+    "logoutFailed": "Sign out request failed, please sign in again"
+  }
+}

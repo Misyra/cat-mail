@@ -1,0 +1,13 @@
+# Issue 路由：只受理两个结构化表单。
+# blank_issues_enabled=false 是刻意的：空白 issue 缺版本/部署方式/数据库等上下文，
+# 复现成本极高；表单强制收集这些必要信息，同时顶部的 markdown 提示会拦下安全类报告。
+blank_issues_enabled: false
+
+# 不设 contact_links：仓库尚未推送 GitHub（无 remote），
+# Discussions 链接依赖 unknown owner，写占位 URL（如 https://github.com/<OWNER>/catmail/discussions）
+# 会被 GitHub 原样渲染成死链，反而误导访客，不如先不提供。
+# TODO(上线后替换)：仓库推送并开启 Discussions 后，在此追加 contact_links 指向 discussions 页，
+# 例如 https://github.com/<你的实际 owner>/catmail/discussions。
+#
+# 注意：安全漏洞不要走任何公开 issue，请使用仓库 Security 标签页的
+# Private Vulnerability Reporting 私密披露，流程与承诺见 SECURITY.md。

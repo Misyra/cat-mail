@@ -1,0 +1,27 @@
+{
+  "channelStatus": {
+    "enabled": "启用中",
+    "manualDisabled": "手动停用",
+    "autoDisabled": "自动禁用",
+    "cooldown": "冷却中"
+  },
+  "logStatus": {
+    "pending": "发送中"
+  },
+  "spinner": {
+    "loading": "加载中"
+  },
+  "errorBoundary": {
+    "title": "页面加载失败",
+    "backHome": "返回首页"
+  },
+  "requireAuth": {
+    "connectionFailed": "无法连接服务"
+  },
+  "errors": {
+    "timeout": "请求超时，请稍后重试",
+    "network": "网络错误：无法连接到服务器",
+    "invalidJson": "响应不是合法的 JSON",
+    "httpStatus": "请求失败（HTTP {{status}}）"
+  }
+}

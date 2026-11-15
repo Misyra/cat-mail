@@ -1,0 +1,34 @@
+name: "功能建议"
+description: "提出新功能或改进建议"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提建议前，建议先读 [SPEC.md](../../blob/main/SPEC.md)（行为契约）与 [README.md](../../blob/main/README.md)——你要的能力也许已经存在，或已有明确的取舍理由。
+
+        提示：CatMail 的定位是**事务性邮件 failover 网关**（验证码、订单通知、系统告警等），不面向营销群发；提案会先对照这个定位与现有契约评估是否纳入。
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: "使用场景"
+      description: "你在什么场景下需要这个能力？没有它，你现在是怎么解决的？"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "期望方案"
+      description: "你希望 CatMail 具体提供什么？（接口形态、配置方式、行为语义，越具体越容易评估）"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "替代方案"
+      description: "是否考虑过其他方案，或用现有配置变通实现？"
+    validations:
+      required: false

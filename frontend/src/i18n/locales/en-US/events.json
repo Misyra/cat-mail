@@ -1,0 +1,59 @@
+{
+  "page": {
+    "title": "Delivery Events",
+    "description": "Normalized delivery, bounce, and complaint events reported by channel platforms; bounce and complaint events are added to the suppression list automatically per settings.",
+    "clearFilters": "Clear Filters",
+    "noMatchTitle": "No matching delivery events",
+    "noMatchDescription": "Try adjusting your filters.",
+    "emptyTitle": "No delivery events yet",
+    "emptyDescription": "Events will appear here once you configure the event webhook URL in your platform (Resend, Mailgun, etc.)."
+  },
+  "type": {
+    "sent": "Accepted",
+    "delivered": "Delivered",
+    "bounced": "Bounced",
+    "complained": "Complaint",
+    "raw": "Other"
+  },
+  "bounce": {
+    "hard": "Hard",
+    "soft": "Soft",
+    "hardOption": "Hard Bounce",
+    "softOption": "Soft Bounce"
+  },
+  "filter": {
+    "eventAria": "Filter by event type",
+    "allEvents": "All events",
+    "bounceAria": "Filter by bounce type",
+    "allBounces": "All bounces",
+    "channelAria": "Filter by channel",
+    "allChannels": "All channels",
+    "recipientAria": "Filter by recipient",
+    "recipientPlaceholder": "Recipient address…"
+  },
+  "columns": {
+    "occurredAt": "Event Time",
+    "channel": "Channel",
+    "recipient": "Recipient",
+    "linkedLog": "Linked Log",
+    "linkedLogTitle": "Send log message_id: {{messageId}}"
+  },
+  "pagination": {
+    "range": "{{start}}–{{end}} of {{total}} · Page {{page}} of {{totalPages}}",
+    "perPage": "Per page",
+    "perPageAria": "Rows per page",
+    "jumpTo": "Go to page",
+    "jumpAria": "Go to page (press Enter)",
+    "pagePlaceholder": "Page",
+    "pageSuffix": " ",
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "detail": {
+    "title": "Delivery Event Details",
+    "providerMessageId": "Provider Message ID",
+    "sendLog": "Send Log",
+    "sendLogIdSuffix": " (#{{id}})",
+    "rawTitle": "Raw Payload"
+  }
+}

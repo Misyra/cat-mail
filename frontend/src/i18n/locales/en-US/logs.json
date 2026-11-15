@@ -1,0 +1,90 @@
+{
+  "page": {
+    "title": "Send Logs",
+    "description": "Search all send records: filter by status, channel, or keyword, sort, and view message body details."
+  },
+  "filter": {
+    "statusAria": "Filter by status",
+    "allStatus": "All statuses",
+    "pending": "Sending",
+    "channelAria": "Filter by channel",
+    "allChannels": "All channels",
+    "channelLoading": "Loading channels…",
+    "searchAria": "Search by subject or recipient",
+    "searchPlaceholder": "Search subject / recipient…",
+    "sortAria": "Sort order",
+    "newest": "Newest first",
+    "oldest": "Oldest first",
+    "latencyDesc": "Slowest first",
+    "live": "Live",
+    "liveOnTitle": "Live refresh is on (every 5s)",
+    "liveOffTitle": "Turn on live refresh (every 5s)",
+    "exportCsv": "Export CSV",
+    "exportTitle": "Export all logs matching the current filters"
+  },
+  "fields": {
+    "channel": "Channel",
+    "platform": "Platform",
+    "from": "From",
+    "to": "To",
+    "subject": "Subject",
+    "template": "Template",
+    "latency": "Latency"
+  },
+  "detail": {
+    "title": "Log Details",
+    "testSend": "Test send",
+    "normalSend": "Normal send",
+    "noSubject": "(No subject)",
+    "templateFallback": "Template #{{id}}",
+    "templateDeleted": "(deleted)",
+    "attempts_one": "({{count}} attempt)",
+    "attempts_other": "({{count}} attempts)",
+    "messageId": "Message ID",
+    "providerMessageId": "Provider Message ID",
+    "apiKeyId": "API Key ID",
+    "copyMessageId": "Copy Message ID",
+    "bodyPreview": "Body Preview",
+    "noBody": "No body recorded (privacy setting or legacy data)",
+    "textBody": "Plain Text",
+    "htmlPreviewTitle": "HTML body preview",
+    "resend": "Resend",
+    "resendTitle": "Resend with the original content (via rotation)"
+  },
+  "resend": {
+    "title": "Resend Email",
+    "confirm": "Confirm Resend",
+    "bodyPrefix": "The message will be resent with its original content through channel rotation to",
+    "bodySuffix": ".",
+    "note": "Resending does not pin the original channel (it may be disabled or over quota); the message goes out through the currently available channels in rotation and gets a new message_id."
+  },
+  "empty": {
+    "filteredTitle": "No matching logs",
+    "filteredDesc": "Try different filters.",
+    "clearFilters": "Clear Filters",
+    "noLogsTitle": "No send records yet",
+    "noLogsDesc": "Emails sent via /v1/send are recorded here."
+  },
+  "toast": {
+    "copyFailedManual": "Copy failed, please select and copy manually",
+    "resendSuccess": "Resend succeeded, new message_id: {{messageId}}",
+    "exported": "Logs exported",
+    "exportFailed": "Export failed, please try again later"
+  },
+  "export": {
+    "timeout": "Export timed out, please try again later",
+    "networkError": "Network error: unable to connect to the server",
+    "failedHttp": "Export failed (HTTP {{httpStatus}})"
+  },
+  "pagination": {
+    "range": "{{start}}–{{end}} of {{total}} · Page {{page}} of {{totalPages}}",
+    "perPage": "Per page",
+    "perPageAria": "Rows per page",
+    "jumpTo": "Go to page",
+    "jumpAria": "Go to page (press Enter)",
+    "pagePlaceholder": "Page",
+    "pageSuffix": " ",
+    "prev": "Previous",
+    "next": "Next"
+  }
+}

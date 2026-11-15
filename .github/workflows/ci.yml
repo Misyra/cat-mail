@@ -1,0 +1,234 @@
+# CatMail CI：backend（Go）与 frontend（Node）两个独立 job。
+# 当前仓库仅存在于本地，推送 GitHub 后自动生效，无需额外配置。
+#
+# TODO(E8 发布流水线)已由 release.yml 落地：推送 v* tag 时按 GOOS/GOARCH 交叉编译
+# 出 catmail_<os>_<arch>（Windows 追加 .exe）并生成 sha256sum 格式 checksums.txt，
+# 随 GitHub Release 上传。资产命名与缺省（无 checksums.txt 拒更）是 /api/update/apply
+# 的硬约定，见 internal/update/assetName 与 apply.go；Dockerfile 以 --build-arg 注入版本。
+#
+# 结构：backend（gofmt → vet → 测试 -race + 覆盖率）、lint（golangci-lint）、
+#       vulncheck（govulncheck 依赖漏洞可达性扫描）三个 Go job 与 frontend（构建）、
+#       frontend-e2e（Playwright 全链路，webServer 起 scripts/e2e-server.sh：
+#       前端构建 + go build + 临时库 + :18100，全 mock 不出网）并行互不拖累。
+# lint/vulncheck 独立成 job 而非塞进 backend：单步失败不应掩盖测试结果，且两者
+# 各自要下载工具/漏洞库较慢，并行省总时长、失败可单独重跑。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 最小权限（与 release.yml 的 permissions: {} 同思路）：CI 只需读代码与上传
+# artifact，GITHUB_TOKEN 收窄到 contents: read，降低工作流被注入后的影响面
+permissions:
+  contents: read
+
+# 同一 ref 连续 push 时只跑最新一次：PR 迭代期旧提交的 CI 结果没有意义
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # go 版本跟随 backend/go.mod 的 go 指令
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      # go:embed 输入 backend/internal/web/dist/ 被 .gitignore 忽略，克隆后不存在：
+      # //go:embed dist 要求目录非空（否则编译报 "pattern dist: no matching files found"），
+      # 且 cmd/catmail 的 TestNoRouteServesEmbeddedAssets 要求 dist/assets/ 下至少有一个文件。
+      # 放占位文件让后端可编译、测试可跑；真实前端产物由 frontend job 单独验证。
+      - name: Create placeholder dist for go:embed
+        run: |
+          mkdir -p internal/web/dist/assets
+          printf '<!doctype html>\n' > internal/web/dist/index.html
+          printf '/* placeholder */\n' > internal/web/dist/assets/app.js
+
+      - name: Check formatting (gofmt)
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::以下文件未通过 gofmt 格式化："
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet (go vet)
+        run: go vet ./...
+
+      # -covermode=atomic：与 -race 配合，竞态检测下覆盖率计数需原子操作；
+      # ./... 多包 profile 合并进单文件由 Go 工具链原生支持
+      - name: Test with coverage (go test -race)
+        run: go test -race -count=1 -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Coverage summary
+        # 末行即总覆盖率（"total: (statements) xx.x%"），日志里一眼看趋势
+        run: go tool cover -func=coverage.txt | tail -1
+
+      # profile 内路径带模块前缀（catmail/internal/...），仓库里文件在 backend/ 下；
+      # 重写前缀让 Codecov 与 artifact 里的路径都能对上仓库目录结构
+      - name: Rewrite coverage paths to repo layout
+        run: sed -i 's|^catmail/|backend/|' coverage.txt
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.txt
+          retention-days: 7
+          if-no-files-found: error
+
+      # 公共仓库 tokenless 即可上传；fail_ci_if_error: false——Codecov 侧网络/
+      # 配额抖动不应挡 CI，覆盖率只是参考信号，测试红才是硬失败
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: backend/coverage.txt
+          flags: backend
+          fail_ci_if_error: false
+
+  lint:
+    name: Backend Lint (golangci-lint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # golangci-lint 的 typecheck 阶段需要本地 go 工具链与模块缓存
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      # 同 backend job 的注释：go:embed 输入 dist 克隆后不存在，typecheck 会因
+      # "pattern dist: no matching files found" 报错，先放占位文件
+      - name: Create placeholder dist for go:embed
+        run: |
+          mkdir -p backend/internal/web/dist/assets
+          printf '<!doctype html>\n' > backend/internal/web/dist/index.html
+          printf '/* placeholder */\n' > backend/internal/web/dist/assets/app.js
+
+      # 版本与本地开发环境对齐（backend/.golangci.yml 为 v2 语法，v1 跑不了）；
+      # action 默认 verify: true，会先按 JSONSchema 校验配置文件，写错立刻红
+      - name: Lint (golangci-lint)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15
+          working-directory: backend
+
+  vulncheck:
+    name: Backend Vulncheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      # govulncheck 只报告"从本仓库代码实际可达"的漏洞（比仅比对 go.mod 版本号
+      # 误报少得多）；失败即红——可达漏洞就该修，没给放过找借口。
+      # 工具用 @latest：漏洞库每日更新，旧版工具可能读不出新条目
+      - name: Govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  frontend:
+    name: Frontend (Node)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: Build (tsc -b && vite build)
+        run: npm run build
+
+  frontend-e2e:
+    name: Frontend E2E (Playwright)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # playwright webServer（scripts/e2e-server.sh）会现场 go build 后端，
+      # 所以 e2e job 也要备好 Go 工具链与模块/构建缓存
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      # 只装 chromium（playwright.config.ts 只配了 chromium 项目）；--with-deps
+      # 顺带装系统依赖库，GitHub 托管 runner 免密 sudo 可直接用
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      # CI 机器冷缓存下 vite build / go build 慢于本地，放宽 e2e-server.sh 的
+      # 构建重试参数（默认 3 次 × 30s），避免偶发构建失败/超时误红
+      - name: Run E2E (playwright test)
+        env:
+          E2E_BUILD_RETRIES: 5
+          E2E_BUILD_RETRY_WAIT: 60
+        run: npm run e2e
+
+      # 截图/trace 仅失败时生成（playwright.config.ts 的 only-on-failure /
+      # retain-on-failure），成功时目录不存在，用 ignore 兜底
+      - name: Upload test results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: frontend/e2e/.tmp/test-results
+          retention-days: 7
+          if-no-files-found: ignore

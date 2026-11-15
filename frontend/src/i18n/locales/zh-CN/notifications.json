@@ -1,0 +1,28 @@
+{
+  "title": "通知",
+  "listAria": "通知列表",
+  "markAllRead": "全部已读",
+  "empty": "暂无通知",
+  "unreadAria_other": "通知（{{count}} 条未读）",
+  "unreadTitle_other": "{{count}} 条未读通知",
+  "unreadCount_other": "{{count}} 条未读",
+  "level": {
+    "error": "错误",
+    "warn": "警告",
+    "info": "提示"
+  },
+  "event": {
+    "channelDisabledLabel": "渠道自动禁用",
+    "channelDisabledDesc": "连续失败达到阈值，渠道被自动禁用",
+    "channelCooldownLabel": "渠道进入冷却",
+    "channelCooldownDesc": "触发平台限流，渠道暂停参与轮换",
+    "channelRecoveredLabel": "渠道冷却恢复",
+    "channelRecoveredDesc": "冷却结束，渠道重新参与轮换",
+    "sendFailedLabel": "最终发送失败",
+    "sendFailedDesc": "所有渠道尝试完毕仍未发出",
+    "updateAvailableLabel": "发现新版本",
+    "updateAvailableDesc": "启动时自动检查更新，发现新版本时提醒（E8）",
+    "bounceRateExceededLabel": "退信率超阈值",
+    "bounceRateExceededDesc": "渠道近 7 天退信率超过设置阈值时提醒（送达链路三件套）"
+  }
+}

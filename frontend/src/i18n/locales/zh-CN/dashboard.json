@@ -1,0 +1,46 @@
+{
+  "title": "仪表盘",
+  "description": "发送概况与渠道用量。",
+  "loadFailed": "加载失败",
+  "successRate": "成功率",
+  "stats": {
+    "todaySent": "今日成功",
+    "todayFailed": "今日失败",
+    "monthSent": "本月发送",
+    "trendSummary": "近 30 日趋势：{{trend}}",
+    "viewLogsTitle": "查看对应日志"
+  },
+  "trend": {
+    "up": "上升",
+    "down": "下降",
+    "flat": "持平"
+  },
+  "chart": {
+    "title": "发送活动",
+    "filterHint": "按渠道筛选仅影响趋势图（统计卡为全量口径）",
+    "days7": "近 7 天",
+    "days30": "近 30 天",
+    "days90": "近 90 天",
+    "timeRangeAria": "时间范围",
+    "channelFilterAria": "按渠道筛选趋势图",
+    "allChannels": "全部渠道",
+    "sent": "发送",
+    "tooltipLine": "{{label}}：{{value}}",
+    "emptyTitle": "暂无发送数据",
+    "emptyDescription": "发送后此处将展示每日趋势；也可切换时间范围或渠道查看。",
+    "ariaSummary": "{{range}}发送 {{sent}} 封、失败 {{failed}} 封，成功率 {{rate}}%",
+    "ariaChannelOnly": "（仅渠道 {{name}}）"
+  },
+  "usage": {
+    "title": "渠道用量",
+    "colChannel": "渠道",
+    "colPlatform": "平台",
+    "colToday": "今日",
+    "colMonth": "本月",
+    "colLastError": "最后错误",
+    "emptyTitle": "还没有渠道，先去新建一个吧",
+    "emptyAction": "去新建渠道",
+    "viewLogs": "查看日志",
+    "viewChannelLogsTitle": "查看「{{name}}」的发送日志"
+  }
+}

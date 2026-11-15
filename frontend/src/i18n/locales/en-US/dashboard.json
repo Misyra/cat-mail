@@ -1,0 +1,46 @@
+{
+  "title": "Dashboard",
+  "description": "Sending overview and channel usage.",
+  "loadFailed": "Failed to load",
+  "successRate": "Success rate",
+  "stats": {
+    "todaySent": "Sent today",
+    "todayFailed": "Failed today",
+    "monthSent": "Sent this month",
+    "trendSummary": "Last 30 days trend: {{trend}}",
+    "viewLogsTitle": "View related logs"
+  },
+  "trend": {
+    "up": "up",
+    "down": "down",
+    "flat": "flat"
+  },
+  "chart": {
+    "title": "Sending activity",
+    "filterHint": "Channel filter affects only this chart (stat cards show all channels)",
+    "days7": "Last 7 days",
+    "days30": "Last 30 days",
+    "days90": "Last 90 days",
+    "timeRangeAria": "Time range",
+    "channelFilterAria": "Filter chart by channel",
+    "allChannels": "All channels",
+    "sent": "Sent",
+    "tooltipLine": "{{label}}: {{value}}",
+    "emptyTitle": "No sending data yet",
+    "emptyDescription": "Daily trends will appear here once you send. You can also switch the time range or channel.",
+    "ariaSummary": "{{range}}: {{sent}} sent, {{failed}} failed, success rate {{rate}}%",
+    "ariaChannelOnly": "(channel {{name}} only)"
+  },
+  "usage": {
+    "title": "Channel usage",
+    "colChannel": "Channel",
+    "colPlatform": "Platform",
+    "colToday": "Today",
+    "colMonth": "This month",
+    "colLastError": "Last error",
+    "emptyTitle": "No channels yet. Create one to get started.",
+    "emptyAction": "Create Channel",
+    "viewLogs": "View logs",
+    "viewChannelLogsTitle": "View sending logs for {{name}}"
+  }
+}

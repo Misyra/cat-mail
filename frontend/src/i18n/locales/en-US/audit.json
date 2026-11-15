@@ -1,0 +1,63 @@
+{
+  "title": "Audit Logs",
+  "description": "Management actions are recorded: who did what to which target, from which IP, and when (successful operations only, last 5000 kept).",
+  "filter": {
+    "actionAria": "Filter by action (prefix supported)",
+    "actionPlaceholder": "All actions (type a prefix, e.g. channel)",
+    "actionQuickAria": "Quick filter by action",
+    "allActions": "All actions",
+    "operatorAria": "Filter by operator",
+    "operatorPlaceholder": "Operator username…",
+    "clear": "Clear filters"
+  },
+  "columns": {
+    "operator": "Operator",
+    "action": "Action",
+    "target": "Target",
+    "ip": "IP"
+  },
+  "empty": {
+    "filteredTitle": "No matching audit records",
+    "filteredDescription": "Try adjusting the filters.",
+    "allTitle": "No audit records yet",
+    "allDescription": "Successful management actions on channels, keys, accounts, settings and more will be recorded here."
+  },
+  "pagination": {
+    "range": "{{start}}–{{end}} of {{total}} · Page {{page}} of {{totalPages}}",
+    "perPage": "Per page",
+    "perPageAria": "Rows per page",
+    "jumpTo": "Go to page",
+    "jumpAria": "Go to page (press Enter)",
+    "pagePlaceholder": "Page",
+    "pageSuffix": " ",
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "actions": {
+    "channelCreate": "Channel created",
+    "channelUpdate": "Channel updated",
+    "channelDelete": "Channel deleted",
+    "channelStatus": "Channel status changed",
+    "channelDuplicate": "Channel duplicated",
+    "channelWebhookToken": "Webhook token rotated",
+    "templateCreate": "Template created",
+    "templateUpdate": "Template updated",
+    "templateDelete": "Template deleted",
+    "keyCreate": "Key created",
+    "keyUpdate": "Key updated",
+    "keyDelete": "Key deleted",
+    "keyWebhookSecret": "Receipt signing secret rotated",
+    "userCreate": "Account created",
+    "userResetPassword": "Password reset",
+    "userDelete": "Account deleted",
+    "sessionsRevoke": "Sessions revoked",
+    "passwordResetLinkage": "Password reset linkage",
+    "settingsUpdate": "Settings updated",
+    "settingsWebhookSecret": "Notification signing secret",
+    "purgeLogs": "Logs purged",
+    "backupCreate": "Backup created",
+    "backupDelete": "Backup deleted",
+    "suppressionCreate": "Suppression added",
+    "suppressionDelete": "Suppression removed"
+  }
+}

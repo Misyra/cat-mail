@@ -1,0 +1,27 @@
+{
+  "channelStatus": {
+    "enabled": "Active",
+    "manualDisabled": "Manually disabled",
+    "autoDisabled": "Auto-disabled",
+    "cooldown": "Cooling down"
+  },
+  "logStatus": {
+    "pending": "Sending"
+  },
+  "spinner": {
+    "loading": "Loading"
+  },
+  "errorBoundary": {
+    "title": "Page failed to load",
+    "backHome": "Back to home"
+  },
+  "requireAuth": {
+    "connectionFailed": "Cannot connect to server"
+  },
+  "errors": {
+    "timeout": "Request timed out. Please try again later.",
+    "network": "Network error: could not reach the server",
+    "invalidJson": "Response is not valid JSON",
+    "httpStatus": "Request failed (HTTP {{status}})"
+  }
+}

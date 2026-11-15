@@ -1,0 +1,53 @@
+{
+  "brand": {
+    "name": "猫邮",
+    "subtitle": "邮件 Failover 网关"
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "channels": "渠道管理",
+    "domains": "域名治理",
+    "templates": "邮件模板",
+    "logs": "发送日志",
+    "events": "送达事件",
+    "suppressions": "抑制列表",
+    "apiKeys": "API Keys",
+    "users": "账号管理",
+    "audit": "审计日志",
+    "settings": "系统设置"
+  },
+  "sidebar": {
+    "currentUser": "当前用户：{{name}}",
+    "expand": "展开侧栏",
+    "collapse": "收起侧栏",
+    "logout": "退出登录",
+    "navMenu": "导航菜单"
+  },
+  "header": {
+    "skipToContent": "跳到主内容",
+    "openMenu": "打开导航菜单",
+    "searchTitle": "搜索页面与命令（⌘K / Ctrl+K）",
+    "openPalette": "打开命令面板"
+  },
+  "theme": {
+    "toggleAria": "界面主题：{{current}}，点击切换",
+    "toggleTitle": "界面主题：{{current}}（点击切换）"
+  },
+  "palette": {
+    "label": "命令面板",
+    "navGroup": "导航",
+    "searchPlaceholder": "搜索页面或命令…",
+    "searchAria": "搜索页面或命令",
+    "noResults": "没有匹配的命令",
+    "switchTheme": "切换主题（当前：{{current}}）",
+    "themeKeywords": "theme 深浅色模式",
+    "logoutKeywords": "logout 注销",
+    "selectHint": "↑↓ 选择",
+    "runHint": "↵ 执行",
+    "closeHint": "Esc 关闭"
+  },
+  "toast": {
+    "loggedOut": "已退出登录",
+    "logoutFailed": "退出登录请求失败，请重新登录"
+  }
+}

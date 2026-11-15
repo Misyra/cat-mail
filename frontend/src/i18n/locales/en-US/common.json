@@ -1,0 +1,61 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "copy": "Copy",
+    "copied": "Copied to clipboard",
+    "copyFailed": "Failed to copy",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "close": "Close",
+    "create": "Create",
+    "search": "Search",
+    "export": "Export",
+    "submit": "Submit",
+    "clear": "Clear",
+    "reload": "Reload",
+    "view": "View",
+    "more": "More"
+  },
+  "state": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "success": "Success",
+    "failed": "Failed",
+    "pending": "Pending",
+    "all": "All",
+    "loading": "Loading…",
+    "unknown": "Unknown"
+  },
+  "fields": {
+    "name": "Name",
+    "status": "Status",
+    "type": "Type",
+    "time": "Time",
+    "createdAt": "Created",
+    "actions": "Actions",
+    "description": "Description",
+    "detail": "Details",
+    "error": "Error"
+  },
+  "time": {
+    "justNow": "just now",
+    "secondsAgo_one": "{{count}} second ago",
+    "secondsAgo_other": "{{count}} seconds ago",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
+  "theme": {
+    "light": "Light",
+    "glass": "Liquid Glass",
+    "dark": "Dark",
+    "system": "System"
+  }
+}

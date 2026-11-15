@@ -1,0 +1,240 @@
+# CatMail 发布流水线：推送 v* tag 时构建全平台静态二进制并发布 GitHub Release
+# （E8 自动更新的发布闭环，ci.yml 中 TODO(E8) 的落地）。
+# 资产命名 catmail_<os>_<arch>（Windows 追加 .exe）+ checksums.txt（sha256sum 格式）
+# 是 /api/update/apply 的硬约定，见 internal/update/update.go 的 assetName 与 apply.go
+# 的 checksumFor——改动命名前先核对这两处。
+#
+# 结构：frontend（构建前端 dist 并上传 artifact）→ binaries（矩阵交叉编译）→
+#       publish（汇总生成 checksums.txt，gh 上传到 Release）。
+# 三段式而非单 job：前端只需构建一次，五平台各自 go build，互不拖累且失败可单独重跑；
+# publish 上传用 gh release upload --clobber，重跑时覆盖同名资产而非报错。
+# Windows 在 ubuntu runner 上交叉编译（CGO_ENABLED=0 纯静态，无需 windows runner）。
+#
+# docker job 与上述三段并行（互不依赖）：构建多架构镜像 linux/amd64（x86 服务器）
+# + linux/arm64（树莓派/Apple Silicon）推送 ghcr.io。镜像在容器内自建前端与后端
+# （Dockerfile 三阶段自足），不复用 binaries 的交叉编译产物——那要按目标架构挑产物
+# 挂进运行层、多一套架构判断，而 QEMU 下纯 Go 编译（CGO_ENABLED=0）耗时可接受。
+# 镜像必传 --build-arg VERSION=${{ github.ref_name }}（E8 硬约定：容器内编译的
+# 版本号须与 Release tag 一致，/api/update/check 才能正确比较版本）。
+# 推送 ghcr 失败不应阻塞二进制 Release，故 docker 不挂在 publish 依赖链上。
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+# 默认全只读；publish job 单独提升 contents: write（创建 Release 与上传资产），
+# docker job 单独提升 packages: write（推送 ghcr.io），权限按 job 最小化
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  frontend:
+    name: Build frontend dist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies (npm ci)
+        working-directory: frontend
+        run: npm ci
+
+      # vite outDir 固定为 ../backend/internal/web/dist（vite.config.ts），产物直落 embed 目录
+      - name: Build (tsc -b && vite build)
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: backend/internal/web/dist
+          if-no-files-found: error
+
+  binaries:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    needs: frontend
+    defaults:
+      run:
+        working-directory: backend
+    strategy:
+      # 单平台失败不拖垮其余平台，失败的平台可单独重跑
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
+          - { goos: darwin,  goarch: arm64 }
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: windows, goarch: amd64 }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # go:embed 输入 backend/internal/web/dist/ 被 .gitignore 忽略，克隆后不存在，
+      # 由 frontend job 构建并经 artifact 传过来（下载即解包到指定目录）
+      - name: Download frontend dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: backend/internal/web/dist
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # go 版本跟随 backend/go.mod 的 go 指令
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      # CGO_ENABLED=0 静态编译（与 Dockerfile 同口径）；版本号注入
+      # catmail/internal/version.Version（internal/version/version.go）
+      - name: Cross compile
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          ext=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            ext=".exe"
+          fi
+          mkdir -p ../release-assets
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -trimpath \
+            -ldflags "-s -w -X catmail/internal/version.Version=${VERSION}" \
+            -o ../release-assets/catmail_${{ matrix.goos }}_${{ matrix.goarch }}${ext} \
+            ./cmd/catmail
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: binaries
+    permissions:
+      # 创建 Release 与上传资产所需的最小权限
+      contents: write
+    steps:
+      # 五个 bin-* artifact 合并下载到同一目录（merge-multiple 去掉各自的顶层子目录）
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Generate checksums.txt
+        working-directory: release-assets
+        # sha256sum 格式（<hex><两空格><文件名>），与 apply.go checksumFor 的解析约定一致；
+        # glob 仅匹配二进制资产，不含 checksums.txt 自身
+        run: sha256sum catmail_* > checksums.txt
+
+      - name: Create release (skip if exists)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ github.ref_name }}" >/dev/null 2>&1 || \
+            gh release create "${{ github.ref_name }}" \
+              --title "CatMail ${{ github.ref_name }}" \
+              --generate-notes
+
+      # --clobber 覆盖同名资产：重跑/补传时幂等，不会因资产已存在而失败
+      - name: Upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" release-assets/* --clobber
+
+  # 多架构镜像：amd64（x86 服务器）+ arm64（树莓派/Apple Silicon），推 ghcr.io。
+  # 无 needs——与 frontend/binaries 并行：Dockerfile 自足（见文件头注释），
+  # 且 ghcr 失败不能拖累二进制 Release（E8 硬约定优先）。
+  docker:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    # 顶层 permissions: {} 全只读；仅本 job 提升 packages: write 用于推送 ghcr.io
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # arm64 层在本 job 内经 QEMU 模拟构建，无需 arm64 runner
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # github.repository 可能含大写，而 ghcr 要求镜像名全小写——metadata-action
+      # 会自动小写化 image 名，无需手工处理。
+      # tag v1.2.3 → 镜像 tag v1.2.3（{{raw}} 保留 v 前缀）/ v1.2 / v1；
+      # flavor latest=auto（默认）对 semver 类 tag 额外生成 latest。
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{raw}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+
+      # sbom/provenance 生成 OCI 供应链证明清单（与镜像一起推到 ghcr）
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          # E8 硬约定：容器内编译的版本号与 Release tag 一致（internal/version.Version），
+          # 与 binaries job 的 ldflags 注入同口径
+          build-args: |
+            VERSION=${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          sbom: true
+          provenance: mode=max
+
+      # push 成功后才把 docker pull 命令写进 run summary（GITHUB_STEP_SUMMARY：
+      # 各 job 的 summary 在 workflow 运行页自动合并，无需改 Release 正文 API）。
+      # 放 docker job 末尾而非 publish：publish 只等 binaries，镜像推送失败时
+      # 不能在 summary 里展示一个不存在的镜像。
+      - name: Append image info to run summary
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo "## Docker 镜像"
+            echo
+            echo "多架构镜像（linux/amd64 + linux/arm64）已推送到 ghcr.io："
+            echo
+            echo '```bash'
+            echo "$IMAGE_TAGS" | sed -E 's|.+|docker pull &|' | sort
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

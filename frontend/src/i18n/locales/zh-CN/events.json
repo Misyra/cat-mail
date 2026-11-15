@@ -1,0 +1,59 @@
+{
+  "page": {
+    "title": "送达事件",
+    "description": "各渠道平台回传的送达/退信/投诉事件（归一化存档）；退信与投诉事件按设置自动进入抑制列表。",
+    "clearFilters": "清除筛选",
+    "noMatchTitle": "没有匹配的送达事件",
+    "noMatchDescription": "换个筛选条件试试。",
+    "emptyTitle": "还没有送达事件",
+    "emptyDescription": "在平台（Resend/Mailgun 等）的 Webhook 配置中填入渠道的事件回传地址后，事件会出现在这里。"
+  },
+  "type": {
+    "sent": "已受理",
+    "delivered": "已送达",
+    "bounced": "退信",
+    "complained": "投诉",
+    "raw": "其他"
+  },
+  "bounce": {
+    "hard": "硬",
+    "soft": "软",
+    "hardOption": "硬退信",
+    "softOption": "软退信"
+  },
+  "filter": {
+    "eventAria": "按事件类型筛选",
+    "allEvents": "全部事件",
+    "bounceAria": "按退信类型筛选",
+    "allBounces": "全部退信",
+    "channelAria": "按渠道筛选",
+    "allChannels": "全部渠道",
+    "recipientAria": "按收件人筛选",
+    "recipientPlaceholder": "收件人地址…"
+  },
+  "columns": {
+    "occurredAt": "事件时间",
+    "channel": "渠道",
+    "recipient": "收件人",
+    "linkedLog": "关联日志",
+    "linkedLogTitle": "发送日志 message_id：{{messageId}}"
+  },
+  "pagination": {
+    "range": "第 {{start}}–{{end}} 条 · 共 {{total}} 条 · 第 {{page}} / {{totalPages}} 页",
+    "perPage": "每页",
+    "perPageAria": "每页条数",
+    "jumpTo": "跳至",
+    "jumpAria": "跳转到指定页（回车确认）",
+    "pagePlaceholder": "页码",
+    "pageSuffix": "页",
+    "prev": "上一页",
+    "next": "下一页"
+  },
+  "detail": {
+    "title": "送达事件详情",
+    "providerMessageId": "平台消息 ID",
+    "sendLog": "发送日志",
+    "sendLogIdSuffix": "（#{{id}}）",
+    "rawTitle": "原始报文"
+  }
+}

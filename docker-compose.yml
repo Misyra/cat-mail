@@ -1,0 +1,29 @@
+# CatMail 单服务编排。
+# 数据持久化：宿主 ./data 挂载为容器 /data（镜像内已设 CATMAIL_DB=/data/catmail.db，
+# 覆盖 config.go 默认的相对路径，数据落点与容器工作目录无关）。
+services:
+  catmail:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: catmail:latest
+    container_name: catmail
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # 管理员账号只在数据库尚无任何账号的首次启动时生效；
+      # admin/admin123 仅为示例——首次启动前务必改成自己的强口令！
+      # （首启后可在后台「系统设置」再改；此后改这里不影响已有账号）
+      CATMAIL_ADMIN_USER: admin
+      CATMAIL_ADMIN_PASS: admin123
+      # 经 HTTPS 反向代理 / TLS 终结部署时取消注释：
+      # CATMAIL_COOKIE_SECURE: "1"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

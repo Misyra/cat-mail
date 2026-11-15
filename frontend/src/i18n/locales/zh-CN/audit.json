@@ -1,0 +1,63 @@
+{
+  "title": "审计日志",
+  "description": "管理操作留痕：谁在何时从哪个 IP 对什么目标做了什么（仅记录成功操作，保留最近 5000 条）。",
+  "filter": {
+    "actionAria": "按动作筛选（支持前缀）",
+    "actionPlaceholder": "全部动作（可输入前缀，如 channel）",
+    "actionQuickAria": "按动作快捷筛选",
+    "allActions": "全部动作",
+    "operatorAria": "按操作者筛选",
+    "operatorPlaceholder": "操作者用户名…",
+    "clear": "清除筛选"
+  },
+  "columns": {
+    "operator": "操作者",
+    "action": "动作",
+    "target": "目标",
+    "ip": "IP"
+  },
+  "empty": {
+    "filteredTitle": "没有匹配的审计记录",
+    "filteredDescription": "换个筛选条件试试。",
+    "allTitle": "还没有审计记录",
+    "allDescription": "渠道、Key、账号、设置等管理操作成功后会记录在这里。"
+  },
+  "pagination": {
+    "range": "第 {{start}}–{{end}} 条 · 共 {{total}} 条 · 第 {{page}} / {{totalPages}} 页",
+    "perPage": "每页",
+    "perPageAria": "每页条数",
+    "jumpTo": "跳至",
+    "jumpAria": "跳转到指定页（回车确认）",
+    "pagePlaceholder": "页码",
+    "pageSuffix": "页",
+    "prev": "上一页",
+    "next": "下一页"
+  },
+  "actions": {
+    "channelCreate": "渠道创建",
+    "channelUpdate": "渠道更新",
+    "channelDelete": "渠道删除",
+    "channelStatus": "渠道启停",
+    "channelDuplicate": "渠道复制",
+    "channelWebhookToken": "Webhook Token 轮换",
+    "templateCreate": "模板创建",
+    "templateUpdate": "模板更新",
+    "templateDelete": "模板删除",
+    "keyCreate": "Key 创建",
+    "keyUpdate": "Key 更新",
+    "keyDelete": "Key 删除",
+    "keyWebhookSecret": "回执签名密钥轮换",
+    "userCreate": "账号创建",
+    "userResetPassword": "重置密码",
+    "userDelete": "账号删除",
+    "sessionsRevoke": "会话下线",
+    "passwordResetLinkage": "重置密码联动",
+    "settingsUpdate": "设置更新",
+    "settingsWebhookSecret": "通知签名密钥",
+    "purgeLogs": "日志清理",
+    "backupCreate": "备份创建",
+    "backupDelete": "备份删除",
+    "suppressionCreate": "抑制添加",
+    "suppressionDelete": "抑制解除"
+  }
+}

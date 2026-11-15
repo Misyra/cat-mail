@@ -1,0 +1,57 @@
+{
+  "actions": {
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "copy": "复制",
+    "copied": "已复制到剪贴板",
+    "copyFailed": "复制失败",
+    "retry": "重试",
+    "refresh": "刷新",
+    "close": "关闭",
+    "create": "创建",
+    "search": "搜索",
+    "export": "导出",
+    "submit": "提交",
+    "clear": "清空",
+    "reload": "重新加载",
+    "view": "查看",
+    "more": "更多"
+  },
+  "state": {
+    "enabled": "启用",
+    "disabled": "停用",
+    "success": "成功",
+    "failed": "失败",
+    "pending": "待处理",
+    "all": "全部",
+    "loading": "加载中…",
+    "unknown": "未知"
+  },
+  "fields": {
+    "name": "名称",
+    "status": "状态",
+    "type": "类型",
+    "time": "时间",
+    "createdAt": "创建时间",
+    "actions": "操作",
+    "description": "说明",
+    "detail": "详情",
+    "error": "错误信息"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "secondsAgo_other": "{{count}} 秒前",
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_other": "{{count}} 天前"
+  },
+  "theme": {
+    "light": "浅色模式",
+    "glass": "液态玻璃",
+    "dark": "深色模式",
+    "system": "跟随系统"
+  }
+}

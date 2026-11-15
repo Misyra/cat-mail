@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+/* 深色模式：html.dark class 控制（localStorage 'catmail-theme'，支持 light/dark/system 三态） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* 中文管理后台字体栈（雪蓝/天青 accent 直接使用 sky 色阶） */
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    sans-serif;
+
+  /* 语义 token（浅色默认值；深色值在下方 .dark 覆盖，工具类如 bg-surface / text-text-muted 随之切换） */
+  --color-surface: #f1f5f9; /* 页面底色 slate-100 */
+  --color-surface-raised: #ffffff; /* 卡片/顶栏/弹窗底色 */
+  --color-border-subtle: #e2e8f0; /* 分隔线/卡片描边 slate-200 */
+  --color-text-primary: #0f172a; /* 主文字 slate-900 */
+  --color-text-secondary: #475569; /* 正文 slate-600 */
+  --color-text-muted: #64748b; /* 弱化文字 slate-500 */
+  --color-accent: #0284c7; /* 强调 sky-600 */
+
+  /* 弹层动画：日志详情右侧停靠面板滑入 / 移动端侧栏抽屉左侧滑入 / 命令面板弹入 */
+  --animate-dock-in-right: dock-in-right 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-dock-in-left: dock-in-left 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-pop-in: pop-in 0.16s ease-out both;
+
+  @keyframes dock-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes dock-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+/* 原生控件配色基线：滚动条、select 下拉、textarea 等跟随浅色 */
+html {
+  color-scheme: light;
+}
+
+/* 深色模式语义 token 覆盖（slate-950 / slate-900 / slate-800 / slate-100 / slate-300 / slate-400 / sky-400） */
+.dark {
+  /* 深色下滚动条与原生控件跟随深色（修复弹窗/textarea 滚动条亮白） */
+  color-scheme: dark;
+  --color-surface: #020617;
+  --color-surface-raised: #0f172a;
+  --color-border-subtle: #1e293b;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-accent: #38bdf8;
+}
+
+@layer base {
+  body {
+    @apply bg-surface font-sans text-text-primary antialiased;
+  }
+}
+
+/* 尊重系统「减少动态效果」：命令面板 / 日志停靠面板 / 侧栏抽屉的入场动画属装饰性位移，直接关闭；
+   骨架 pulse、侧栏宽度过渡在组件上用 motion-reduce:* 变体处理；
+   animate-spin 是功能性加载指示，保留不动 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in,
+  .animate-dock-in-right,
+  .animate-dock-in-left {
+    animation: none;
+  }
+}
+
+/* 原生 dialog 基线（W2）：Modal / 命令面板 / 日志详情共用 */
+dialog.app-dialog {
+  /* 弹窗内容滚动到边界后不把手势链给底层页面 */
+  overscroll-behavior: contain;
+}
+
+/* 居中修复：Tailwind preflight 把 * 的 margin 清零，UA 的 dialog margin:auto
+   居中失效（Modal 曾一直贴左上角；命令面板靠显式 mx-auto 幸免）。
+   放在 base 层刻意输给 utilities —— dock 变体的 m-0 ml-auto / m-0 mr-auto
+   （贴右/贴左停靠）必须能覆盖这条 */
+@layer base {
+  dialog.app-dialog {
+    margin: auto;
+  }
+}
+
+dialog.app-dialog::backdrop {
+  /* 对齐原遮罩观感：slate-900/50 + 轻模糊；overflow:hidden 让 backdrop 成为滚动容器，
+     否则 overscroll-behavior 不生效（Safari 等不支持非滚动容器 contain 时优雅降级） */
+  background: rgb(15 23 42 / 0.5);
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* 弹窗面板用 Tailwind 的 display 工具类（flex）承载布局，会盖掉 UA 的
+   dialog:not([open]) { display: none }：不补这条，showModal 前的一帧（以及通用场景下
+   关闭态仍挂在 DOM 的 dialog）会以错误位置裸露在文档里。只在未打开时藏，打开态交给 flex */
+dialog.app-dialog:not([open]) {
+  display: none;
+}
+
+/* 日志详情停靠面板变体（O28.4）：定位/尺寸/入场动画由组件上的 Tailwind 类归口
+   （m-0 ml-auto 推右、h-dvh 全高、max-w-none/max-h-none 解除 UA 的 max 约束、
+   <lg 全宽 / ≥lg min(520px,90vw)、animate-dock-in-right 滑入），CSS 层不重复声明 */
+dialog.app-dock::backdrop {
+  /* 对齐旧遮罩观感：比 Modal 的 0.5 更弱，面板打开时右侧列表仍可辨认；
+     关掉基线的模糊，列表保持清晰（旧遮罩无模糊） */
+  background: rgb(15 23 42 / 0.25);
+  backdrop-filter: none;
+}
+
+html.dark dialog.app-dock::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+/* ═══════════ 液态玻璃主题（第 4 档「玻璃」，html.glass class，theme.ts 顶栏第 2 位）═══════════
+   分层原理（浅色/深色档完全不受影响，所有玻璃规则都以 html.glass 为根）：
+   1. 画布层：html.glass 底色 + body::before 固定极光光斑 —— 玻璃透出的「内容」；
+      极光保持静态：任何动画都会让 backdrop 每帧变化，强制所有玻璃表面逐帧重采样，
+      是玻璃档卡顿的最大来源（环境光本身不需要动）；
+   2. 剥离层：玻璃档下 body 与 AppLayout 页面级容器（.app-glass-void）转透明 —— 这三层
+      bg-surface 直接叠加会复合出 ~90% 不透明度，把极光挡死；DomainsPage 的小面板/芯片
+      等局部 bg-surface 不剥离（不透明内嵌面板在玻璃卡片上语义正确）；
+   3. 材质层（按成本分档）：--color-surface-raised / --color-border-subtle 半透明化 +
+      三个挂钩 —— .glass-surface（浮层：blur+饱和+镜面高光；只给压在滚动内容上的表面：
+      弹窗/命令面板/停靠面板/抽屉/通知弹层，这类才有真实的景深收益）、.glass-tint
+      （主流表面：仅半透明+镜面高光；卡片/侧栏/顶栏的 backdrop 只是柔和的极光渐变，
+      blur 视觉增益≈0 却要每帧重采样，全铺 backdrop-filter 是卡顿根源）、.glass-control
+      （控件：半透明底+squircle，不做 blur —— 控件背后只有卡片材质，无内容可折）；
+   4. 回退：prefers-reduced-transparency → 整体回退实体观感；无 backdrop-filter 的老
+      浏览器 → token 回退不透明（半透明无 blur 会显脏）。
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* 画布 + 语义 token 半透明化（--color-surface 保持不透明：ring-surface 徽章描边等仍需实色） */
+html.glass {
+  --color-surface-raised: rgb(255 255 255 / 0.62);
+  --color-border-subtle: rgb(148 163 184 / 0.38);
+  background-color: #f1f5f9;
+}
+
+html.glass.dark {
+  --color-surface-raised: rgb(15 23 42 / 0.55);
+  --color-border-subtle: rgb(148 163 184 / 0.2);
+  background-color: #020617;
+}
+
+/* 剥离页面级 bg-surface 叠加（body 经 @layer base 的 @apply 落地，无 class 可选，直接选 body） */
+html.glass body,
+html.glass .app-glass-void {
+  background-color: transparent;
+}
+
+/* 登录页自带的渐变底会挡住极光，玻璃档下让位 */
+html.glass .app-login-bg {
+  background-image: none;
+  background-color: transparent;
+}
+
+/* 极光光斑：fixed 定位不随内容滚动（环境光）；保持静态 —— 见段首说明 */
+html.glass body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 40rem at 15% -10%, rgb(14 165 233 / 0.2), transparent 65%),
+    radial-gradient(36rem 36rem at 110% 10%, rgb(99 102 241 / 0.17), transparent 65%),
+    radial-gradient(44rem 44rem at 50% 120%, rgb(20 184 166 / 0.14), transparent 65%);
+}
+
+html.glass.dark body::before {
+  background:
+    radial-gradient(40rem 40rem at 15% -10%, rgb(14 165 233 / 0.26), transparent 65%),
+    radial-gradient(36rem 36rem at 110% 10%, rgb(139 92 246 / 0.2), transparent 65%),
+    radial-gradient(44rem 44rem at 50% 120%, rgb(6 182 212 / 0.16), transparent 65%);
+}
+
+/* 材质规则放进 utilities 层（与 Tailwind 工具类同层）是刻意的：
+   写在层外会无差别压过 hover/disabled/focus 等状态类，控件反馈全部失效。
+   .glass-control 基础底用 :where() 归零 class 特异性（净 (0,1,1)），
+   bg-white (0,1,0) 输、hover:bg-slate-50 (0,2,0) 赢 —— 半透明是底、状态反馈照常；
+   dark 档规则 (0,2,1) 压过 dark:bg-slate-800 (0,2,0)、仍输给 dark:hover (0,3,0)。 */
+@layer utilities {
+  /* 浮层玻璃（弹窗/命令面板/停靠面板/抽屉/通知弹层）：blur + 饱和提升 + 顶部镜面高光
+     + 半透明边缘描边（squircle 渐进增强，不支持的浏览器保持普通圆角）；
+     background 不在此定 —— 组件的 bg-surface-raised token 已在 html.glass 下半透明 */
+  html.glass .glass-surface {
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+    backdrop-filter: blur(16px) saturate(1.5);
+    corner-shape: squircle;
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.55),
+      inset 0 0 0 1px rgb(255 255 255 / 0.22),
+      0 1px 2px 0 rgb(15 23 42 / 0.06),
+      0 8px 32px 0 rgb(15 23 42 / 0.1);
+  }
+
+  html.glass.dark .glass-surface {
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.1),
+      inset 0 0 0 1px rgb(255 255 255 / 0.07),
+      0 1px 2px 0 rgb(0 0 0 / 0.4),
+      0 8px 32px 0 rgb(0 0 0 / 0.5);
+  }
+
+  /* 流表面玻璃（卡片/侧栏/顶栏/登录卡）：无 blur —— backdrop 只有静态极光渐变，
+     半透明+高光就够「玻璃」，省掉逐帧重采样 */
+  html.glass .glass-tint {
+    corner-shape: squircle;
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.55),
+      inset 0 0 0 1px rgb(255 255 255 / 0.22),
+      0 1px 2px 0 rgb(15 23 42 / 0.06),
+      0 8px 32px 0 rgb(15 23 42 / 0.1);
+  }
+
+  html.glass.dark .glass-tint {
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.1),
+      inset 0 0 0 1px rgb(255 255 255 / 0.07),
+      0 1px 2px 0 rgb(0 0 0 / 0.4),
+      0 8px 32px 0 rgb(0 0 0 / 0.5);
+  }
+
+  /* 控件级轻玻璃（输入框 / secondary 按钮）：只接管半透明底，不做 blur（背后只有卡片
+     材质，无内容可折）；border 与 box-shadow 留给状态类（focus ring 是 box-shadow，
+     不能碰） */
+  html.glass :where(.glass-control) {
+    background-color: rgb(255 255 255 / 0.55);
+    corner-shape: squircle;
+  }
+
+  html.glass.dark :where(.glass-control) {
+    background-color: rgb(15 23 42 / 0.55);
+  }
+}
+
+/* 玻璃档弹窗遮罩：比实体档更透 + 更模糊，玻璃面板的景深靠它（特异性高于上方实体档规则） */
+html.glass dialog.app-dialog::backdrop {
+  background: rgb(15 23 42 / 0.35);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+}
+
+html.glass.dark dialog.app-dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+html.glass dialog.app-dock::backdrop {
+  background: rgb(15 23 42 / 0.2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  backdrop-filter: blur(8px) saturate(1.2);
+}
+
+html.glass.dark dialog.app-dock::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+/* 系统「减少透明度」：玻璃整体回退实体观感 —— token 不透明、极光关闭、剥离层还原
+   （不支持的浏览器不匹配此 MQ，保持玻璃材质：Firefox 无此 MQ 但支持 backdrop-filter） */
+@media (prefers-reduced-transparency: reduce) {
+  html.glass {
+    --color-surface-raised: #ffffff;
+    --color-border-subtle: #e2e8f0;
+    background-color: #f1f5f9;
+  }
+
+  html.glass.dark {
+    --color-surface-raised: #0f172a;
+    --color-border-subtle: #1e293b;
+    background-color: #020617;
+  }
+
+  html.glass body::before {
+    content: none;
+  }
+
+  html.glass body,
+  html.glass .app-glass-void {
+    background-color: var(--color-surface);
+  }
+
+  html.glass .glass-surface {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* 无 backdrop-filter 的老浏览器：半透明底失去 blur 会显脏，token 回退不透明。
+   材质类的 blur/阴影随 @supports 不匹配自动无效，无需重复处理 */
+@supports not ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+  html.glass {
+    --color-surface-raised: #ffffff;
+    --color-border-subtle: #e2e8f0;
+  }
+
+  html.glass.dark {
+    --color-surface-raised: #0f172a;
+    --color-border-subtle: #1e293b;
+  }
+}

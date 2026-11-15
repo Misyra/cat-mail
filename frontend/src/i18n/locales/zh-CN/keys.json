@@ -1,0 +1,94 @@
+{
+  "page": {
+    "description": "管理调用 /v1/send 的凭证；明文 Key 仅在创建时展示一次。"
+  },
+  "actions": {
+    "createKey": "新建 Key",
+    "createSubmit": "创建 Key",
+    "sendTest": "发送测试",
+    "rotate": "轮换密钥",
+    "copied": "已复制",
+    "copyKey": "复制 Key",
+    "savedClose": "我已保存，关闭",
+    "backToView": "返回查看",
+    "confirmCloseNoShow": "确认关闭，不再显示",
+    "confirmDelete": "确认删除"
+  },
+  "table": {
+    "label": "API Key 列表",
+    "quota": "限额",
+    "totalSent": "累计发送",
+    "lastUsed": "最近使用",
+    "neverUsed": "从未使用",
+    "perDay_other": "{{count}}/日",
+    "unlimited": "不限",
+    "badgeActive": "启用中",
+    "badgeInactive": "已停用",
+    "passwordResetBadge": "密码重置后停用，可手动启用",
+    "passwordResetTitle": "该 Key 因所属账号密码被管理员重置而联动停用；手动启用即可恢复"
+  },
+  "empty": {
+    "title": "还没有 API Key",
+    "description": "创建一个 Key，程序即可用它调用 /v1/send 发送邮件。"
+  },
+  "form": {
+    "limitPlaceholder": "0 = 不限",
+    "nameRequired": "请输入 Key 名称",
+    "nameTooLong": "名称不能超过 64 个字符",
+    "limitInvalidCreate": "日额度 / 限速须为非负整数（留空或 0 = 不限）",
+    "limitInvalidEdit": "日额度 / 限速须为非负整数（0 = 不限）",
+    "nameHint": "用于识别用途，如「CI 发布脚本」",
+    "dailyQuotaLabel": "日额度",
+    "dailyQuotaHint": "每日成功发送上限",
+    "rateLabel": "限速 / 秒",
+    "rateHint": "超出则排队或 429",
+    "createNote": "创建成功后仅展示一次完整明文 Key，请提前准备好保存位置。"
+  },
+  "create": {
+    "title": "新建 API Key"
+  },
+  "reveal": {
+    "title": "Key 创建成功",
+    "bodyPrefix": "Key",
+    "bodySuffix": "创建成功，完整明文如下：",
+    "warning": "请立即保存：完整 Key 仅此一次展示，关闭后将无法再次查看，只能删除后重新创建。",
+    "closeWarning": "关闭后明文 Key 将不再显示，请确认已妥善保存。"
+  },
+  "delete": {
+    "title": "删除 API Key",
+    "confirmPrefix": "确定删除 Key",
+    "maskOpen": "（",
+    "confirmSuffix": "）吗？",
+    "note": "删除后不可恢复；使用该 Key 调用 /v1/send 的程序将收到 401 未授权错误。"
+  },
+  "nameQuoted": "「{{name}}」",
+  "edit": {
+    "title": "编辑 Key — {{name}}",
+    "callerLimits": "调用方限额",
+    "testHint": "发送测试使用已保存的 URL",
+    "webhookDesc": "配置后，该 Key 调用发送接口的受理/终态失败结果会异步 POST JSON 到下面的地址，方便无人值守管道归档（同步 API 响应本身已含结果）。",
+    "urlRequired": "Webhook URL 须以 http:// 或 https:// 开头",
+    "webhookUrlHint": "留空 = 不推送；仅支持 http(s):// 地址",
+    "secretTitle": "签名密钥",
+    "secretDesc": "回执请求按此密钥携带 X-CatMail-Signature 头（HMAC-SHA256，±5 分钟 时间戳容差）；轮换后请同步更新接收方校验密钥。",
+    "secretRotateConfirm": "确定轮换该 Key 的签名密钥吗？轮换后接收方需更新校验密钥。",
+    "eventsTitle": "回执事件",
+    "eventsWarning": "已填 URL 但未勾选任何事件：保存后不会推送任何回执。",
+    "testPushLabel": "测试回执推送：",
+    "testFailedWithError": "失败：{{error}}"
+  },
+  "events": {
+    "sendAccepted": "受理成功",
+    "sendAcceptedDesc": "平台受理成功后推送（含 provider_message_id 与耗时）",
+    "sendFailed": "终态失败",
+    "sendFailedDesc": "429 额度/限速或候选渠道穷尽后推送（参数类 400 不推）"
+  },
+  "toast": {
+    "deleted": "Key「{{name}}」已删除",
+    "configSaved": "Key「{{name}}」配置已保存",
+    "secretRotated": "签名密钥已轮换，接收方需同步更新",
+    "copyFailedManual": "复制失败，请手动选中复制",
+    "enabled": "Key 已启用",
+    "disabled": "Key 已停用"
+  }
+}

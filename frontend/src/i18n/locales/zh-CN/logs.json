@@ -1,0 +1,89 @@
+{
+  "page": {
+    "title": "发送日志",
+    "description": "全部发送记录检索，支持按状态、渠道、关键词过滤、排序与查看正文详情。"
+  },
+  "filter": {
+    "statusAria": "按状态筛选",
+    "allStatus": "全部状态",
+    "pending": "发送中",
+    "channelAria": "按渠道筛选",
+    "allChannels": "全部渠道",
+    "channelLoading": "渠道加载中…",
+    "searchAria": "按主题或收件人搜索",
+    "searchPlaceholder": "搜索主题 / 收件人…",
+    "sortAria": "排序方式",
+    "newest": "最新优先",
+    "oldest": "最早优先",
+    "latencyDesc": "耗时最长",
+    "live": "实时",
+    "liveOnTitle": "实时刷新已开启（每 5 秒）",
+    "liveOffTitle": "开启实时刷新（每 5 秒）",
+    "exportCsv": "导出 CSV",
+    "exportTitle": "按当前筛选导出全部日志"
+  },
+  "fields": {
+    "channel": "渠道",
+    "platform": "平台",
+    "from": "发件人",
+    "to": "收件人",
+    "subject": "主题",
+    "template": "模板",
+    "latency": "耗时"
+  },
+  "detail": {
+    "title": "日志详情",
+    "testSend": "测试发送",
+    "normalSend": "正常发送",
+    "noSubject": "（无主题）",
+    "templateFallback": "模板 #{{id}}",
+    "templateDeleted": "（已删除）",
+    "attempts_other": "（尝试 {{count}} 次）",
+    "messageId": "Message ID",
+    "providerMessageId": "Provider Message ID",
+    "apiKeyId": "API Key ID",
+    "copyMessageId": "复制 Message ID",
+    "bodyPreview": "正文预览",
+    "noBody": "未记录正文（隐私开关或历史数据）",
+    "textBody": "纯文本",
+    "htmlPreviewTitle": "HTML 正文预览",
+    "resend": "重发",
+    "resendTitle": "按原内容重新发送（走轮换）"
+  },
+  "resend": {
+    "title": "重发邮件",
+    "confirm": "确认重发",
+    "bodyPrefix": "将按原内容重新发送并走轮换，收件人为",
+    "bodySuffix": "。",
+    "note": "重发不指定原渠道（原渠道可能已停用或超额），由当前可用渠道轮换发送，并生成新的 message_id。"
+  },
+  "empty": {
+    "filteredTitle": "没有匹配的日志",
+    "filteredDesc": "换个筛选条件试试。",
+    "clearFilters": "清除筛选",
+    "noLogsTitle": "还没有发送记录",
+    "noLogsDesc": "通过 /v1/send 发出的邮件会记录在这里。"
+  },
+  "toast": {
+    "copyFailedManual": "复制失败，请手动选择复制",
+    "resendSuccess": "重发成功，新 message_id：{{messageId}}",
+    "exported": "日志已导出",
+    "exportFailed": "导出失败，请稍后重试"
+  },
+  "export": {
+    "timeout": "导出超时，请稍后重试",
+    "networkError": "网络错误：无法连接到服务器",
+    "failedHttp": "导出失败（HTTP {{httpStatus}}）"
+  },
+  "pagination": {
+    "range": "第 {{start}}–{{end}} 条 · 共 {{total}} 条 · 第 {{page}} / {{totalPages}} 页",
+    "perPage": "每页",
+    "perPageAria": "每页条数",
+    "jumpTo": "跳至",
+    "jumpAria": "跳转到指定页（回车确认）",
+    "pagePlaceholder": "页码",
+    "pageSuffix": "页",
+    "prev": "上一页",
+    "next": "下一页"
+  }
+}

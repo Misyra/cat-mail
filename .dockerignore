@@ -1,0 +1,24 @@
+# 版本控制与文档（构建上下文不需要）
+.git
+.gitignore
+*.md
+
+# 依赖与构建产物：容器内重新构建，禁止携带本地旧产物
+# （dist 必须用本次 frontend 阶段的输出，否则 go:embed 可能打进过期前端）
+**/node_modules
+**/.vite
+backend/internal/web/dist
+backend/catmail
+backend/catmail.exe
+/catmail
+/catmail.exe
+
+# 运行时数据：本地开发 SQLite 与 compose 挂载目录，绝不能进镜像
+backend/data/
+/data/
+
+# 非构建所需目录
+research/
+scripts/
+tmp/
+.DS_Store
