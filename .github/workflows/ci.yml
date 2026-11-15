@@ -95,7 +95,7 @@ jobs:
       # 公共仓库 tokenless 即可上传；fail_ci_if_error: false——Codecov 侧网络/
       # 配额抖动不应挡 CI，覆盖率只是参考信号，测试红才是硬失败
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: backend/coverage.txt
           flags: backend
