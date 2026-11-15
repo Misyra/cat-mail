@@ -63,6 +63,7 @@
 
 ### Changed
 
+- 依赖全量升级至最新：GitHub Actions 五件套升 v7（checkout/setup-go/setup-node/upload-artifact/codecov）、Go modules 全量 minor/patch（`x/crypto` 0.59.0、gorm 1.31.2、modernc 系大幅前移）、npm 升级含 **TypeScript 7.0.2** 大版本与 Playwright 1.65.1；全量后端测试（-race）、golangci-lint、govulncheck、前端构建与 24 项 E2E 验证通过。
 - 许可证 **MIT → AGPL-3.0**：发布前变更（无历史许可负担），唯一版权人 Misyra；README/README.en badge 与 License 行同步，PLAN.md 早期记录保留原文。
 - Go 工具链 1.27.3 → **1.27.4**：修复 stdlib `net/http` 可达漏洞 GO-2026-6859（HTTP/1 server MaxBytesReader header race），govulncheck 门禁转绿。
 - **会话 token 升级 v3 格式**（新增服务端会话注册表）：v2 及更早格式的存量 token 一律失效，升级后需重新登录一次（零数据迁移；本人改密后当前会话保持登录的口径不变）。

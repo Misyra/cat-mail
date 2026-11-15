@@ -37,10 +37,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -56,7 +56,7 @@ jobs:
         run: npm run build
 
       - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: backend/internal/web/dist
@@ -81,7 +81,7 @@ jobs:
           - { goos: windows, goarch: amd64 }
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # go:embed 输入 backend/internal/web/dist/ 被 .gitignore 忽略，克隆后不存在，
       # 由 frontend job 构建并经 artifact 传过来（下载即解包到指定目录）
@@ -92,7 +92,7 @@ jobs:
           path: backend/internal/web/dist
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           # go 版本跟随 backend/go.mod 的 go 指令
           go-version-file: backend/go.mod
@@ -117,7 +117,7 @@ jobs:
             ./cmd/catmail
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
           path: release-assets/*
@@ -172,7 +172,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # arm64 层在本 job 内经 QEMU 模拟构建，无需 arm64 runner
       - name: Set up QEMU
