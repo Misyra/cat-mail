@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -81,7 +81,7 @@ jobs:
           - { goos: windows, goarch: amd64 }
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # go:embed 输入 backend/internal/web/dist/ 被 .gitignore 忽略，克隆后不存在，
       # 由 frontend job 构建并经 artifact 传过来（下载即解包到指定目录）
@@ -172,7 +172,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # arm64 层在本 job 内经 QEMU 模拟构建，无需 arm64 runner
       - name: Set up QEMU
