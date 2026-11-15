@@ -71,9 +71,23 @@ jobs:
         run: go vet ./...
 
       # -covermode=atomic：与 -race 配合，竞态检测下覆盖率计数需原子操作；
-      # ./... 多包 profile 合并进单文件由 Go 工具链原生支持
+      # ./... 多包 profile 合并进单文件由 Go 工具链原生支持。
+      # 全量输出落文件：失败时把尾部写进 $GITHUB_STEP_SUMMARY（run 页面公开可见，
+      # 无需登录即可读失败详情；成功时 step summary 不写，页面保持干净）
       - name: Test with coverage (go test -race)
-        run: go test -race -count=1 -coverprofile=coverage.txt -covermode=atomic ./...
+        run: |
+          set -o pipefail
+          go test -race -count=1 -coverprofile=coverage.txt -covermode=atomic ./... 2>&1 | tee /tmp/gotest.log
+
+      - name: Test failure tail → job summary
+        if: failure()
+        run: |
+          {
+            echo "### go test 失败输出（尾部 150 行）"
+            echo '```'
+            tail -n 150 /tmp/gotest.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Coverage summary
         # 末行即总覆盖率（"total: (statements) xx.x%"），日志里一眼看趋势
