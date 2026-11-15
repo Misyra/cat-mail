@@ -56,7 +56,16 @@ jobs:
         run: |
           mkdir -p internal/web/dist/assets
           printf '<!doctype html>\n' > internal/web/dist/index.html
-          printf '/* placeholder */\n' > internal/web/dist/assets/app.js
+          # 占位产物必须足够大：cmd/catmail 的 TestStaticGzipNegotiation/
+          # TestRangeRequestNotCompressed 经 pickAsset 要求存在 ≥1KB 的 .js
+          # 与 ≥200B 的 .js/.css 产物（小体积会命中「已知小文件不压」分支）。
+          # 用重复内容撑尺寸；真实产物由 frontend job 单独构建验证。
+          { printf '/* CI placeholder */\n'; i=0; while [ $i -lt 80 ]; do
+              printf 'console.log("placeholder %03d - static asset tests need >=1KB js/css artifacts");\n' "$i"
+              i=$((i+1)); done; } > internal/web/dist/assets/app.js
+          { printf '/* placeholder css */\n'; i=0; while [ $i -lt 12 ]; do
+              printf '.placeholder%02d { color: #000; padding: 4px; margin: 0; }\n' "$i"
+              i=$((i+1)); done; } > internal/web/dist/assets/app.css
 
       - name: Check formatting (gofmt)
         run: |
