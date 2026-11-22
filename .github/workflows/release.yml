@@ -86,7 +86,7 @@ jobs:
       # go:embed 输入 backend/internal/web/dist/ 被 .gitignore 忽略，克隆后不存在，
       # 由 frontend job 构建并经 artifact 传过来（下载即解包到指定目录）
       - name: Download frontend dist artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: web-dist
           path: backend/internal/web/dist
@@ -133,7 +133,7 @@ jobs:
     steps:
       # 五个 bin-* artifact 合并下载到同一目录（merge-multiple 去掉各自的顶层子目录）
       - name: Download all binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: bin-*
           merge-multiple: true
